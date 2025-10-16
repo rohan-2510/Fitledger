@@ -41,3 +41,17 @@ app-example
 # generated native folders
 /ios
 /android
+
+# dependencies
+/node_modules
+/.expo
+/.expo-shared
+# build outputs
+/dist
+/build
+/web-build
+# system files
+.DS_Store
+Thumbs.db
+# env files
+.env
