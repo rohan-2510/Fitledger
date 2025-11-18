@@ -4,14 +4,16 @@ import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/Colors';
+import { useCheckForUpdates } from '../hooks/useCheckForUpdates';
 
 export default function DashboardScreen() {
+  const { checkForUpdates } = useCheckForUpdates();
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>Hello, rohangavada3!</Text>
-        <Text style={styles.subtitle}>Achieve your maintain goal</Text>
+        <Text style={styles.greeting}>Hello, Pilli!</Text>
+        <Text style={styles.subtitle}>Goal: Gain Abs</Text>
         <View style={styles.profileImageContainer}>
           <Image
             source={{ uri: 'https://via.placeholder.com/100' }}
@@ -25,7 +27,7 @@ export default function DashboardScreen() {
         <Card style={styles.statCard}>
           <View style={styles.statRow}>
             <View>
-              <Text style={styles.statValue}>1,890</Text>
+              <Text style={styles.statValue}>2500</Text>
               <Text style={styles.statLabel}>Calories</Text>
             </View>
             <View style={[styles.statIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]} >
@@ -111,6 +113,21 @@ export default function DashboardScreen() {
           Increase your protein intake to support muscle recovery. Try adding more chicken, fish, or plant-based proteins to your meals.
         </Text>
       </Card>
+      {/* <View style={{marginTop: 20, alignItems: 'center'}}>
+        <Text style={{fontSize: 10, opacity: 0.5, marginBottom: 10}}>
+          Last updated: {new Date().toLocaleString()}
+        </Text>
+        <Button 
+          title="Check for Updates" 
+          onPress={async () => {
+            const { isAvailable } = await checkForUpdates();
+            if (isAvailable) {
+              // The update will be handled by the hook
+            }
+          }}
+          style={{padding: 10}}
+        />
+      </View> */}
     </ScrollView>
   );
 }

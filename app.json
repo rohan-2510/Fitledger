@@ -7,6 +7,16 @@
     "icon": "./assets/images/icon.png",
     "scheme": "fitledger",
     "userInterfaceStyle": "automatic",
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD",
+      "url": "https://u.expo.dev/4b9c87c3-e607-4264-8566-69d4341ec57b",
+      "channel": "preview"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -18,7 +28,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.rohan2510.Fitledger"
     },
     "web": {
       "output": "static",
@@ -43,6 +54,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4b9c87c3-e607-4264-8566-69d4341ec57b"
+      }
     }
   }
 }

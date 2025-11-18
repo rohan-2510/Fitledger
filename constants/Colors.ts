@@ -20,4 +20,7 @@ export const Colors = {
   protein: '#3b82f6',
   carbs: '#f59e0b',
   fat: '#10b981',
+  
+  // UI specific
+  cardHighlight: '#f8fafc',
 };
