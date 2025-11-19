@@ -4,6 +4,7 @@ import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View }
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/Colors';
+import { ThemeTokens } from '../../constants/ThemeTokens';
 
 // Mock data for workouts
 const workoutPlans = [

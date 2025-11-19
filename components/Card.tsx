@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { ThemeTokens } from '../constants/ThemeTokens';
 
 type CardProps = {
   children: React.ReactNode;
@@ -14,13 +15,9 @@ export const Card: React.FC<CardProps> = ({ children, style }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: ThemeTokens.radius.lg,
+    padding: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.md,
+    ...ThemeTokens.shadow.card,
   },
 });

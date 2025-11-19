@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { ThemeTokens } from '../constants/ThemeTokens';
 
 type ProgressBarProps = {
   progress: number; // 0 to 1
@@ -35,14 +36,14 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     backgroundColor: Colors.lightGray,
-    borderRadius: 4,
+    borderRadius: ThemeTokens.radius.md,
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
   },
   progressBar: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: ThemeTokens.radius.md,
   },
   percentageText: {
     position: 'absolute',

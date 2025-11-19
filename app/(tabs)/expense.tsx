@@ -4,6 +4,7 @@ import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View }
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/Colors';
+import { ThemeTokens } from '../../constants/ThemeTokens';
 
 // Mock data for expenses
 const recentExpenses = [
@@ -276,21 +277,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    paddingTop: 50,
+    padding: ThemeTokens.spacing.lg,
+    paddingTop: ThemeTokens.spacing.xl * 2,
     backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: ThemeTokens.radius.xl,
+    borderBottomRightRadius: ThemeTokens.radius.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: ThemeTokens.typography.headline,
+    fontWeight: '800',
     color: 'white',
   },
   subtitle: {
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
+    marginTop: ThemeTokens.spacing.xs,
   },
   profileImageContainer: {
     width: 50,
@@ -305,9 +306,9 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   budgetCard: {
-    margin: 20,
-    marginTop: 10,
-    padding: 20,
+    margin: ThemeTokens.spacing.lg,
+    marginTop: ThemeTokens.spacing.sm,
+    padding: ThemeTokens.spacing.lg,
   },
   budgetHeader: {
     flexDirection: 'row',

@@ -1,26 +1,26 @@
 export const Colors = {
-  primary: '#2563eb',
-  background: '#f8fafc',
-  card: '#ffffff',
-  text: '#1e293b',
-  border: '#e2e8f0',
-  notification: '#ff3b30',
-  success: '#10b981',
-  warning: '#f59e0b',
-  error: '#ef4444',
-  
+  primary: '#4F46E5', // indigo-600
+  background: '#F8FAFC', // slate-50
+  card: '#FFFFFF',
+  text: '#0F172A', // slate-900
+  border: '#E2E8F0', // slate-200
+  notification: '#EF4444',
+  success: '#16A34A',
+  warning: '#F59E0B',
+  error: '#EF4444',
+
   // Specific colors from the design
-  darkBlue: '#1e40af',
-  lightBlue: '#3b82f6',
-  gray: '#64748b',
-  lightGray: '#f1f5f9',
-  darkGray: '#334155',
-  
+  darkBlue: '#1E3A8A', // blue-800
+  lightBlue: '#6366F1', // indigo-500
+  gray: '#6B7280', // gray-500
+  lightGray: '#F1F5F9', // slate-100
+  darkGray: '#334155', // slate-700
+
   // Macro colors
-  protein: '#3b82f6',
-  carbs: '#f59e0b',
-  fat: '#10b981',
-  
+  protein: '#6366F1', // indigo-500
+  carbs: '#F59E0B',
+  fat: '#16A34A',
+
   // UI specific
-  cardHighlight: '#f8fafc',
+  cardHighlight: '#F8FAFC',
 };

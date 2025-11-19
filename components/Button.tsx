@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { ThemeTokens } from '../constants/ThemeTokens';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'text';
 
@@ -84,16 +85,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: ThemeTokens.spacing.sm,
+    paddingHorizontal: ThemeTokens.spacing.xl,
+    borderRadius: ThemeTokens.radius.lg,
     minHeight: 48,
   },
   primaryButton: {
     backgroundColor: Colors.primary,
+    ...ThemeTokens.shadow.button,
   },
   secondaryButton: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...ThemeTokens.shadow.button,
   },
   outlineButton: {
     backgroundColor: 'transparent',
@@ -102,14 +107,14 @@ const styles = StyleSheet.create({
   },
   textButton: {
     backgroundColor: 'transparent',
-    paddingHorizontal: 12,
+    paddingHorizontal: ThemeTokens.spacing.sm,
   },
   disabledButton: {
     opacity: 0.6,
   },
   primaryText: {
     color: '#fff',
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 16,
   },
   secondaryText: {
@@ -130,4 +135,4 @@ const styles = StyleSheet.create({
   iconContainer: {
     marginRight: 8,
   },
-});
+})

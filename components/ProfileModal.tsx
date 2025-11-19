@@ -3,6 +3,10 @@ import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from './Button';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
+import { ThemeTokens } from '../constants/ThemeTokens';
+
+import { useAuth } from '../context/AuthContext';
+import { useRouter } from 'expo-router';
 
 interface ProfileModalProps {
   visible: boolean;
@@ -13,6 +17,24 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ visible, onClose, onLogin, onCreateAccount, onCheckUpdates }: ProfileModalProps) {
+  const { isLoggedIn, user, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleViewProfile = () => {
+    onClose();
+    router.push('/profile-details' as never);
+  };
+
+  const handleCompleteProfile = () => {
+    onClose();
+    router.push('/complete-profile' as never);
+  };
+
+  const handleLogout = () => {
+    signOut();
+    onClose();
+  };
+
   return (
     <Modal
       animationType="slide"
@@ -30,31 +52,68 @@ export function ProfileModal({ visible, onClose, onLogin, onCreateAccount, onChe
           </View>
           
           <View style={styles.modalBody}>
-            <Button
-              title="Login"
-              onPress={onLogin}
-              style={styles.button}
-              variant="outline"
-              icon={<MaterialIcons name="login" size={20} color={Colors.primary} />}
-            />
-            
-            <Button
-              title="Create Account"
-              onPress={onCreateAccount}
-              style={styles.button}
-              variant="outline"
-              icon={<MaterialIcons name="person-add" size={20} color={Colors.primary} />}
-            />
-            
-            <View style={styles.divider} />
-            
-            <Button
-              title="Check for Updates"
-              onPress={onCheckUpdates}
-              style={styles.button}
-              variant="text"
-              icon={<MaterialIcons name="system-update" size={20} color={Colors.text} />}
-            />
+            {isLoggedIn ? (
+              <>
+                {user?.email ? (
+                  <View style={{ marginBottom: ThemeTokens.spacing.sm }}>
+                    <Text style={{ color: Colors.gray }}>Signed in as</Text>
+                    <Text style={{ color: Colors.text, fontWeight: '600' }}>{user.email}</Text>
+                  </View>
+                ) : null}
+                <Button
+                  title="View Profile"
+                  onPress={handleViewProfile}
+                  style={styles.button}
+                  variant="outline"
+                  icon={<MaterialIcons name="person" size={20} color={Colors.primary} />}
+                />
+                {!user?.profileCompleted && (
+                  <Button
+                    title="Complete Profile"
+                    onPress={handleCompleteProfile}
+                    style={styles.button}
+                    variant="outline"
+                    icon={<MaterialIcons name="assignment" size={20} color={Colors.primary} />}
+                  />
+                )}
+                <View style={styles.divider} />
+                <Button
+                  title="Logout"
+                  onPress={handleLogout}
+                  style={styles.button}
+                  variant="text"
+                  icon={<MaterialIcons name="logout" size={20} color={Colors.error} />}
+                />
+              </>
+            ) : (
+              <>
+                <Button
+                  title="Login"
+                  onPress={onLogin}
+                  style={styles.button}
+                  variant="outline"
+                  icon={<MaterialIcons name="login" size={20} color={Colors.primary} />}
+                />
+                
+                <Button
+                  title="Create Account"
+                  onPress={onCreateAccount}
+                  style={styles.button}
+                  variant="outline"
+                  icon={<MaterialIcons name="person-add" size={20} color={Colors.primary} />}
+                />
+                
+                <View style={styles.divider} />
+                
+                <Button
+                  title="Check for Updates"
+                  onPress={onCheckUpdates}
+                  style={styles.button}
+                  variant="text"
+                  icon={<MaterialIcons name="system-update" size={20} color={Colors.text} />}
+                />
+              </>
+            )}
           </View>
         </View>
       </View>
@@ -69,18 +128,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 40,
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: ThemeTokens.radius.xl,
+    borderTopRightRadius: ThemeTokens.radius.xl,
+    padding: ThemeTokens.spacing.xl,
+    paddingBottom: ThemeTokens.spacing.xl * 2,
     maxHeight: '50%',
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: ThemeTokens.spacing.md,
   },
   modalTitle: {
     fontSize: 20,
@@ -88,17 +147,17 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   closeButton: {
-    padding: 8,
+    padding: ThemeTokens.spacing.sm,
   },
   modalBody: {
-    paddingHorizontal: 8,
+    paddingHorizontal: ThemeTokens.spacing.sm,
   },
   button: {
-    marginBottom: 12,
+    marginBottom: ThemeTokens.spacing.sm,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.lightGray,
-    marginVertical: 16,
+    backgroundColor: Colors.border,
+    marginVertical: ThemeTokens.spacing.md,
   },
 });

@@ -1,25 +1,45 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/Colors';
+import { ThemeTokens } from '../../constants/ThemeTokens';
 import { useCheckForUpdates } from '../hooks/useCheckForUpdates';
+
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useState, useEffect } from 'react';
 
 export default function DashboardScreen() {
   const { checkForUpdates } = useCheckForUpdates();
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    if (params.profileSaved) {
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+    }
+  }, [params.profileSaved]);
+
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        {showSuccess && (
+          <View style={{backgroundColor: Colors.success, padding: 8, borderRadius: 8, marginBottom: 10}}>
+            <Text style={{color: 'white', textAlign: 'center'}}>Profile saved successfully!</Text>
+          </View>
+        )}
         <Text style={styles.greeting}>Hello, Pilli!</Text>
         <Text style={styles.subtitle}>Goal: Gain Abs</Text>
-        <View style={styles.profileImageContainer}>
+        <TouchableOpacity style={styles.profileImageContainer} onPress={() => router.push('/profile-details')}>
           <Image
             source={{ uri: 'https://via.placeholder.com/100' }}
             style={styles.profileImage}
           />
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Stats Overview */}
@@ -138,13 +158,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    padding: 20,
-    paddingTop: 50,
+    padding: ThemeTokens.spacing.lg,
+    paddingTop: ThemeTokens.spacing.xl * 2,
     backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: ThemeTokens.radius.xl,
+    borderBottomRightRadius: ThemeTokens.radius.xl,
     position: 'relative',
-    paddingBottom: 80,
+    paddingBottom: ThemeTokens.spacing.xl * 2,
   },
   greeting: {
     fontSize: 24,
@@ -172,8 +192,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: -30,
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.lg,
   },
   statCard: {
     width: '48%',
@@ -202,14 +222,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionCard: {
-    marginHorizontal: 20,
-    marginBottom: 16,
+    marginHorizontal: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.md,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: ThemeTokens.spacing.md,
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -248,7 +268,7 @@ const styles = StyleSheet.create({
   chartPlaceholder: {
     height: 200,
     backgroundColor: Colors.lightGray,
-    borderRadius: 8,
+    borderRadius: ThemeTokens.radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
