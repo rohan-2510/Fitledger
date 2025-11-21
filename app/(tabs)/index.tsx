@@ -1,14 +1,14 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/Colors';
 import { ThemeTokens } from '../../constants/ThemeTokens';
 import { useCheckForUpdates } from '../hooks/useCheckForUpdates';
 
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 
 export default function DashboardScreen() {
   const { checkForUpdates } = useCheckForUpdates();
@@ -32,11 +32,11 @@ export default function DashboardScreen() {
             <Text style={{color: 'white', textAlign: 'center'}}>Profile saved successfully!</Text>
           </View>
         )}
-        <Text style={styles.greeting}>Hello, Pilli!</Text>
-        <Text style={styles.subtitle}>Goal: Gain Abs</Text>
-        <TouchableOpacity style={styles.profileImageContainer} onPress={() => router.push('/profile-details')}>
+        <Text style={styles.greeting}>Hello, Rohan!</Text>
+        <Text style={styles.subtitle}>Goal: Gain Muscles</Text>
+        <TouchableOpacity style={styles.profileImageContainer} onPress={() => router.push('./profile-details')}>
           <Image
-            source={{ uri: 'https://via.placeholder.com/100' }}
+            source={{ uri: 'https://img.freepik.com/free-vector/user-circles-set_78370-4704.jpg?semt=ais_hybrid&w=740&q=80' }}
             style={styles.profileImage}
           />
         </TouchableOpacity>
