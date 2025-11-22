@@ -9,6 +9,32 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext'; // Import useAuth
 import { ProfileImageDisplay } from '../../components/ProfileImageDisplay'; // Import ProfileImageDisplay
 import { ProfileModal } from '../../components/ProfileModal'; // Import ProfileModal
+import apiClient from '../api/apiClient'; // Import apiClient
+
+interface MealLog {
+  id: number;
+  custom_name: string;
+  calories: number;
+  date: string;
+}
+
+interface ExpenseItem {
+  id: number;
+  description: string;
+  category: string;
+  amount: number;
+  date: string; // ISO date string
+}
+
+interface WorkoutLog {
+  id: number;
+  exercise: string;
+  sets?: number;
+  reps?: string;
+  weight?: number;
+  duration_min?: number;
+  timestamp: string;
+}
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -16,6 +42,9 @@ export default function DashboardScreen() {
   const { user, isLoggedIn, signOut } = useAuth(); // Use useAuth hook
   const [showSuccess, setShowSuccess] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for modal visibility
+  const [dailyCalories, setDailyCalories] = useState<number>(0);
+  const [dailyExpenses, setDailyExpenses] = useState<number>(0);
+  const [latestWorkout, setLatestWorkout] = useState<WorkoutLog | null>(null);
 
   useEffect(() => {
     if (params.profileSaved) {
@@ -23,6 +52,49 @@ export default function DashboardScreen() {
       setTimeout(() => setShowSuccess(false), 2000);
     }
   }, [params.profileSaved]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!isLoggedIn) return;
+
+      const today = new Date().toISOString().split('T')[0];
+
+      // Fetch daily meal calories
+      try {
+        const mealLogs = await apiClient.get<MealLog[]>(`/meals/logs/?date=${today}`);
+        const totalDailyCalories = mealLogs.reduce((sum, log) => sum + log.calories, 0);
+        setDailyCalories(totalDailyCalories);
+      } catch (error) {
+        console.error('Error fetching daily calories:', error);
+        setDailyCalories(0);
+      }
+
+      // Fetch daily expenses
+      try {
+        const expenseLogs = await apiClient.get<ExpenseItem[]>(`/expenses/logs/?date=${today}`);
+        const totalDailyExpenses = expenseLogs.reduce((sum, item) => sum + item.amount, 0);
+        setDailyExpenses(totalDailyExpenses);
+      } catch (error) {
+        console.error('Error fetching daily expenses:', error);
+        setDailyExpenses(0);
+      }
+
+      // Fetch latest workout
+      try {
+        const workoutLogs = await apiClient.get<WorkoutLog[]>(`/workouts/logs/?date=${today}`);
+        if (workoutLogs.length > 0) {
+          // Assuming logs are returned in reverse chronological order or sort if not
+          const sortedWorkouts = [...workoutLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          setLatestWorkout(sortedWorkouts[0]);
+        }
+      } catch (error) {
+        console.error('Error fetching latest workout:', error);
+        setLatestWorkout(null);
+      }
+    };
+
+    fetchDashboardData();
+  }, [isLoggedIn]); // Refetch when login status changes
 
   // Handlers for ProfileModal actions
   const handleLogin = () => {
@@ -77,7 +149,7 @@ export default function DashboardScreen() {
         <Card style={styles.statCard}>
           <View style={styles.statRow}>
             <View>
-              <Text style={styles.statValue}>2500</Text>
+              <Text style={styles.statValue}>{dailyCalories}</Text>
               <Text style={styles.statLabel}>Calories</Text>
             </View>
             <View style={[styles.statIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]} >
@@ -89,7 +161,7 @@ export default function DashboardScreen() {
         <Card style={styles.statCard}>
           <View style={styles.statRow}>
             <View>
-              <Text style={styles.statValue}>₹2,500</Text>
+              <Text style={styles.statValue}>₹{dailyExpenses.toLocaleString()}</Text>
               <Text style={styles.statLabel}>Expenses</Text>
             </View>
             <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} >
@@ -102,26 +174,26 @@ export default function DashboardScreen() {
       {/* Workout Section */}
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Workout: Chest Day</Text>
+          <Text style={styles.sectionTitle}>Workout: {latestWorkout?.exercise || 'No workout today'}</Text>
           <Button 
             title="View All" 
             variant="text" 
-            onPress={() => {}} 
+            onPress={() => router.push('/(tabs)/workout')} 
             style={{ padding: 0 }}
           />
         </View>
         <View style={styles.workoutStats}>
           <View style={styles.workoutStat}>
-            <Text style={styles.workoutStatValue}>12</Text>
-            <Text style={styles.workoutStatLabel}>Exercises</Text>
+            <Text style={styles.workoutStatValue}>{latestWorkout?.sets || '-'}</Text>
+            <Text style={styles.workoutStatLabel}>Sets</Text>
           </View>
           <View style={styles.workoutStat}>
-            <Text style={styles.workoutStatValue}>1h 30m</Text>
-            <Text style={styles.workoutStatLabel}>Time</Text>
+            <Text style={styles.workoutStatValue}>{latestWorkout?.reps || '-'}</Text>
+            <Text style={styles.workoutStatLabel}>Reps</Text>
           </View>
           <View style={styles.workoutStat}>
-            <Text style={styles.workoutStatValue}>1,200</Text>
-            <Text style={styles.workoutStatLabel}>Calories</Text>
+            <Text style={styles.workoutStatValue}>{latestWorkout?.weight ? `${latestWorkout.weight}kg` : '-'}</Text>
+            <Text style={styles.workoutStatLabel}>Weight</Text>
           </View>
         </View>
       </Card>

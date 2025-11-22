@@ -5,7 +5,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import React, { useEffect } from 'react';
-import { Alert, View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet, Text } from 'react-native';
 import * as Updates from 'expo-updates';
 
 export const unstable_settings = {
@@ -43,17 +43,19 @@ function RootLayoutContent() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <View style={{ flex: 1 }}> {/* Use a simple View for the root layout */}
-        <Stack>
-          <Stack.Screen 
-            name="(tabs)" 
-            options={{ headerShown: false }} 
-          />
-          <Stack.Screen name="login" options={{ title: 'Login' }} />
-          <Stack.Screen name="register" options={{ title: 'Register' }} />
-          <Stack.Screen name="complete-profile" options={{ title: 'Complete Profile' }} />
-          <Stack.Screen name="profile-details" options={{ title: 'Profile Details' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
+        
+          <Stack>
+            <Stack.Screen 
+              name="(tabs)" 
+              options={{ headerShown: false }} 
+            />
+            <Stack.Screen name="login" options={{ title: 'Login' }} />
+            <Stack.Screen name="register" options={{ title: 'Register' }} />
+            <Stack.Screen name="complete-profile" options={{ title: 'Complete Profile' }} />
+            <Stack.Screen name="profile-details" options={{ title: 'Profile Details' }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+        
       </View>
       <StatusBar style="auto" />
     </ThemeProvider>

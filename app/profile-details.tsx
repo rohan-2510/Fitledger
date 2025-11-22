@@ -35,8 +35,16 @@ export default function ProfileDetailsScreen() {
       <Text style={styles.label}>Height: <Text style={styles.value}>{profile?.height ? `${profile.height} cm` : '—'}</Text></Text>
       <Text style={styles.label}>Weight: <Text style={styles.value}>{profile?.weight ? `${profile.weight} kg` : '—'}</Text></Text>
       <Text style={styles.label}>Age: <Text style={styles.value}>{profile?.age || '—'}</Text></Text>
+      <Text style={styles.label}>Gender: <Text style={styles.value}>{profile?.gender || '—'}</Text></Text>
       <Text style={styles.label}>Activity Level: <Text style={styles.value}>{profile?.activityLevel || '—'}</Text></Text>
       <Text style={styles.label}>Goal: <Text style={styles.value}>{profile?.goal || '—'}</Text></Text>
+      <View style={styles.divider} />
+
+      <Text style={styles.title}>Recommended Daily Intake</Text>
+      <Text style={styles.label}>Calories: <Text style={styles.value}>{user?.macros?.calories || '—'} kcal</Text></Text>
+      <Text style={styles.label}>Protein: <Text style={styles.value}>{user?.macros?.protein || '—'} g</Text></Text>
+      <Text style={styles.label}>Carbs: <Text style={styles.value}>{user?.macros?.carbs || '—'} g</Text></Text>
+      <Text style={styles.label}>Fat: <Text style={styles.value}>{user?.macros?.fat || '—'} g</Text></Text>
       <Button title="Edit Profile" onPress={handleEditProfile} style={styles.logoutButton} />
       <Button title="Logout" onPress={handleLogout} style={styles.logoutButton} />
     </View>

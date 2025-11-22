@@ -12,18 +12,21 @@ export default function CompleteProfileScreen() {
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [age, setAge] = useState('');
+  const [gender, setGender] = useState(''); // New state for gender
   const [activityLevel, setActivityLevel] = useState('');
   const [goal, setGoal] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [activityOpen, setActivityOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
+  const [genderOpen, setGenderOpen] = useState(false); // New state for gender modal
 
   const activityOptions = ['Sedentary', 'Light', 'Moderate', 'Very Active', 'Extreme'];
   const goalOptions = ['Cut', 'Maintain', 'Bulk'];
+  const genderOptions = ['Male', 'Female', 'Other']; // Options for gender
 
   const handleSave = async () => {
-    if (!height || !weight || !age || !activityLevel || !goal) {
+    if (!height || !weight || !age || !activityLevel || !goal || !gender) { // Add gender to validation
       alert('Please fill in all fields.');
       return;
     }
@@ -46,12 +49,16 @@ export default function CompleteProfileScreen() {
         mappedGoal = 'maintain';
       }
 
+      // Map gender to backend format
+      let mappedGender = gender.substring(0, 1).toUpperCase(); // M, F, O
+
       const result = await saveProfile({ 
         height, 
         weight, 
         age, 
         activityLevel: mappedActivity, 
-        goal: mappedGoal 
+        goal: mappedGoal,
+        gender: mappedGender // Add gender here
       });
       
       if (result.success) {
@@ -90,6 +97,14 @@ export default function CompleteProfileScreen() {
         value={age}
         onChangeText={setAge}
       />
+      
+      {/* Gender Selection */}
+      <TouchableOpacity style={styles.select} onPress={() => setGenderOpen(true)}>
+        <Text style={[styles.selectText, !gender && styles.placeholderText]}>
+          {gender || 'Select Gender'}
+        </Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.select} onPress={() => setActivityOpen(true)}>
         <Text style={[styles.selectText, !activityLevel && styles.placeholderText]}>
           {activityLevel || 'Select Activity Level'}
@@ -107,6 +122,21 @@ export default function CompleteProfileScreen() {
         disabled={saving}
         style={styles.saveButton}
       />
+
+      {/* Gender Modal */}
+      <Modal transparent visible={genderOpen} animationType="fade" onRequestClose={() => setGenderOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Gender</Text>
+            {genderOptions.map((opt) => (
+              <TouchableOpacity key={opt} style={styles.option} onPress={() => { setGender(opt); setGenderOpen(false); }}>
+                <Text style={styles.optionText}>{opt}</Text>
+              </TouchableOpacity>
+            ))}
+            <Button title="Cancel" variant="text" onPress={() => setGenderOpen(false)} />
+          </View>
+        </View>
+      </Modal>
 
       {/* Activity Level Modal */}
       <Modal transparent visible={activityOpen} animationType="fade" onRequestClose={() => setActivityOpen(false)}>

@@ -6,9 +6,9 @@ import { Card } from 'react-native-paper';
 import { Button } from '../../components/Button';
 import { Colors } from '../../constants/Colors';
 import api from '../api/apiClient';
-import { useAuth } from '../../context/AuthContext'; // Import useAuth
-import { ProfileImageDisplay } from '../../components/ProfileImageDisplay'; // Import ProfileImageDisplay
-import { ProfileModal } from '../../components/ProfileModal'; // Import ProfileModal
+import { useAuth } from '../../context/AuthContext';
+import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
+import { ProfileModal } from '../../components/ProfileModal'; 
 import { useRouter } from 'expo-router';
 
 interface FoodItem {
@@ -36,7 +36,7 @@ interface ApiResponse<T> {
 
 const NutritionScreen: React.FC = () => {
   const router = useRouter();
-  const { user, isLoggedIn, signOut } = useAuth(); // Use useAuth hook
+  const { user, isLoggedIn, signOut } = useAuth();
   const [meals, setMeals] = useState<Meal[]>([
     { id: '1', name: 'Breakfast', foods: [] },
     { id: '2', name: 'Lunch', foods: [] },
@@ -50,16 +50,10 @@ const NutritionScreen: React.FC = () => {
   const [selectedMeal, setSelectedMeal] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
-  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for profile modal
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 
-  const nutritionGoals = {
-    calories: 2000,
-    protein: 120,
-    carbs: 150,
-    fat: 60,
-  };
+  // Removed static nutritionGoals object
 
-  // Handlers for ProfileModal actions
   const handleLogin = () => {
     setIsProfileModalVisible(false);
     router.push('/login' as never);
@@ -132,7 +126,7 @@ const NutritionScreen: React.FC = () => {
           calories: item.calories || 0,
           protein: item.protein || 0,
           carbs: item.carbs || 0,
-          fat: item.fats || 0  // Backend uses 'fats', not 'fat'
+          fat: item.fats || 0 
         }));
         
         setSearchResults(foodItems);
@@ -262,7 +256,7 @@ const NutritionScreen: React.FC = () => {
             style={[
               styles.macroBar, 
               { 
-                width: `${Math.min((mealTotal.protein / nutritionGoals.protein) * 100, 100)}%`,
+                width: `${Math.min((mealTotal.protein / (user?.macros?.protein || 1)) * 100, 100)}%`,
                 backgroundColor: Colors.protein
               }
             ]} 
@@ -271,7 +265,7 @@ const NutritionScreen: React.FC = () => {
             style={[
               styles.macroBar, 
               { 
-                width: `${Math.min((mealTotal.carbs / nutritionGoals.carbs) * 100, 100)}%`,
+                width: `${Math.min((mealTotal.carbs / (user?.macros?.carbs || 1)) * 100, 100)}%`,
                 backgroundColor: Colors.carbs
               }
             ]} 
@@ -280,7 +274,7 @@ const NutritionScreen: React.FC = () => {
             style={[
               styles.macroBar, 
               { 
-                width: `${Math.min((mealTotal.fat / nutritionGoals.fat) * 100, 100)}%`,
+                width: `${Math.min((mealTotal.fat / (user?.macros?.fat || 1)) * 100, 100)}%`,
                 backgroundColor: Colors.fat
               }
             ]} 
@@ -290,7 +284,7 @@ const NutritionScreen: React.FC = () => {
     );
   };
 
-  const renderMacroItem = (label: string, value: number, goal: number, color: string) => (
+  const renderMacroItem = (label: string, value: number, color: string, goal: number) => (
     <View style={styles.macroItem}>
       <View style={styles.macroLabelContainer}>
         <View style={[styles.macroDot, { backgroundColor: color }]} />
@@ -328,7 +322,7 @@ const NutritionScreen: React.FC = () => {
           
           <View style={styles.caloriesContainer}>
             <Text style={styles.caloriesValue}>{Math.round(total.calories)}</Text>
-            <Text style={styles.caloriesLabel}>/ {nutritionGoals.calories} Calories</Text>
+            <Text style={styles.caloriesLabel}>/ {user?.macros?.calories || 0} Calories</Text>
           </View>
           
           <View style={styles.progressBarContainer}>
@@ -337,21 +331,21 @@ const NutritionScreen: React.FC = () => {
                 style={[
                   styles.progressFill, 
                   { 
-                    width: `${Math.min((total.calories / nutritionGoals.calories) * 100, 100)}%`,
-                    backgroundColor: total.calories > nutritionGoals.calories ? Colors.error : Colors.success
+                    width: `${Math.min((total.calories / (user?.macros?.calories || 1)) * 100, 100)}%`,
+                    backgroundColor: total.calories > (user?.macros?.calories || 0) ? Colors.error : Colors.success
                   }
                 ]} 
               />
             </View>
             <Text style={styles.progressText}>
-              {Math.round((total.calories / nutritionGoals.calories) * 100)}% of daily goal
+              {Math.round((total.calories / (user?.macros?.calories || 1)) * 100)}% of daily goal
             </Text>
           </View>
           
           <View style={styles.macrosContainer}>
-            {renderMacroItem('Protein', total.protein, nutritionGoals.protein, Colors.protein)}
-            {renderMacroItem('Carbs', total.carbs, nutritionGoals.carbs, Colors.carbs)}
-            {renderMacroItem('Fat', total.fat, nutritionGoals.fat, Colors.fat)}
+            {renderMacroItem('Protein', total.protein, Colors.protein, user?.macros?.protein || 0)}
+            {renderMacroItem('Carbs', total.carbs, Colors.carbs, user?.macros?.carbs || 0)}
+            {renderMacroItem('Fat', total.fat, Colors.fat, user?.macros?.fat || 0)}
           </View>
         </Card>
 

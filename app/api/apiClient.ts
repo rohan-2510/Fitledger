@@ -1,27 +1,46 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
+import * as Network from 'expo-network'; // Import Network
 import { Platform } from 'react-native';
 
 // Use localhost for web, or get from environment/expo config
 // For mobile devices, use your computer's IP address (e.g., http://192.168.1.100:8000/api)
 // You can set EXPO_PUBLIC_API_URL environment variable or modify this value
-const getApiBase = () => {
+const getApiBase = async () => {
+  console.log('getApiBase: Platform.OS', Platform.OS);
+  console.log('getApiBase: typeof window !== \'undefined\'', typeof window !== 'undefined');
+
   // Check if we have an environment variable set
   if (Constants.expoConfig?.extra?.apiUrl) {
+    console.log('getApiBase: Using apiUrl from Constants.expoConfig.extra', Constants.expoConfig.extra.apiUrl);
     return Constants.expoConfig.extra.apiUrl;
   }
+
   // For web, use localhost
   if (typeof window !== 'undefined') {
+    console.log('getApiBase: Detected web environment, using localhost');
     return 'http://localhost:8000/api';
   }
-  // For mobile devices, you'll need to set this to your computer's IP
-  // Example: 'http://192.168.1.100:8000/api'
-  // You can also use ngrok or similar tunneling service for development
-  return 'http://localhost:8000/api';
+
+  // For mobile devices, dynamically get the IP address
+  try {
+    const ipAddress = await Network.getIpAddressAsync();
+    console.log('getApiBase: Detected IP Address:', ipAddress);
+    return `http://${ipAddress}:8000/api`;
+  } catch (error) {
+    console.error('getApiBase: Error getting IP address, falling back to localhost:', error);
+    return 'http://localhost:8000/api';
+  }
 };
 
-const API_BASE = getApiBase();
+let API_BASE: string;
+
+// Initialize API_BASE when the module loads
+(async () => {
+  API_BASE = await getApiBase();
+  console.log('API_BASE initialized to:', API_BASE);
+})();
 
 // Platform-specific storage helpers
 // Use SecureStore for native, localStorage for web
@@ -110,6 +129,11 @@ const removeSecureItem = async (key: string): Promise<void> => {
   }
 };
 
+interface TokenResponse {
+  access: string;
+  refresh: string;
+}
+
 // Refresh token helper
 const refreshAuthToken = async (): Promise<boolean> => {
   try {
@@ -120,8 +144,8 @@ const refreshAuthToken = async (): Promise<boolean> => {
     const response = await axios.post(`${API_BASE}/auth/token/refresh/`, {
       refresh: refreshToken,
     });
-    if (response.data.access) {
-      await setSecureItem('authToken', response.data.access);
+    if ((response.data as TokenResponse).access) {
+      await setSecureItem('authToken', (response.data as TokenResponse).access);
       return true;
     }
     return false;

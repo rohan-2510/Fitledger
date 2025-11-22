@@ -14,7 +14,9 @@ export type User = {
   age?: number;
   goal?: string;
   activity_level?: string;
-  profile_image_url?: string; // Add this line
+  profile_image_url?: string;
+  gender?: string;
+  macros?: { calories: number; protein: number; carbs: number; fat: number; }; // Add this line
 };
 
 export type ProfileDetails = {
@@ -24,6 +26,7 @@ export type ProfileDetails = {
   activityLevel?: string;
   goal?: string;
   profile_image_url?: string;
+  gender?: string;
 };
 
 type AuthContextValue = {
@@ -73,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = userData as any;
 
         // Determine profile completion status
-        const isProfileComplete = !!(user.height_cm && user.weight_kg && user.age);
+        const isProfileComplete = !!(user.height_cm && user.weight_kg && user.age && user.gender); // Add user.gender
 
         console.log('Refresh User: User data from API:', userData);
         setUser({
@@ -89,6 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           goal: user.goal,
           activity_level: user.activity_level,
           profile_image_url: user.profile_image_url,
+          gender: user.gender,
+          macros: user.macros, // Add this line to set macros
         });
         console.log('Refresh User: User state set to:', user);
         if (user.height_cm || user.weight_kg || user.age) {
@@ -98,11 +103,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             age: user.age?.toString(),
             activityLevel: user.activity_level,
             goal: user.goal,
+            gender: user.gender,
           });
         }
+      } else {
+        console.warn('Refresh User: userData is null or not an object:', userData);
       }
     } catch (error: any) {
-      console.error('Error refreshing user:', error);
+      console.error('Error refreshing user:', error.response?.data || error.message);
       // If token is invalid, clear it
       if (error.response?.status === 401) {
         await signOut();
@@ -141,9 +149,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // apiClient.post returns the data directly, not wrapped in .data
-      if (response && (response as any).access && (response as any).refresh) {
-        await apiClient.setAuthToken((response as any).access);
-        await apiClient.setRefreshToken((response as any).refresh);
+      if (response && response.access && response.refresh) {
+        await apiClient.setAuthToken(response.access);
+        await apiClient.setRefreshToken(response.refresh);
         await refreshUser();
         console.log('Sign In: User state after refresh (success):', user);
         return { success: true };
@@ -173,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Extract the actual username from the response (backend might modify it)
-      createdUsername = (userResponse as any).username || generatedUsername;
+      createdUsername = userResponse.username || generatedUsername;
       
       console.log('Registration successful, attempting login with username:', createdUsername);
       console.log('User registration response:', userResponse);
@@ -182,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Add a small delay to ensure user is fully created
       await new Promise(resolve => setTimeout(resolve, 300)); // Increased delay
       
-      const loginResponse = await apiClient.post('/auth/token/', {
+      const loginResponse = await apiClient.post<TokenResponse>('/auth/token/', {
         username: createdUsername,  // Use the username from registration response
         password: password,
       });
@@ -190,12 +198,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Login response received:', loginResponse);
 
       // apiClient.post returns the data directly, not wrapped in .data
-      const tokenData = loginResponse as any;
       
-      if (tokenData && tokenData.access && tokenData.refresh) {
+      if (loginResponse && loginResponse.access && loginResponse.refresh) {
         console.log('Tokens received, storing...');
-        await apiClient.setAuthToken(tokenData.access);
-        await apiClient.setRefreshToken(tokenData.refresh);
+        await apiClient.setAuthToken(loginResponse.access);
+        await apiClient.setRefreshToken(loginResponse.refresh);
 
         // Fetch user profile
         await refreshUser();
@@ -203,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: true };
       }
       
-      console.error('Invalid token response structure:', tokenData);
+      console.error('Invalid token response structure:', loginResponse);
       return { success: false, error: 'Registration successful but login failed - invalid token response structure' };
     } catch (error: any) {
       console.error('Sign up error:', error);
@@ -264,6 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updateData.goal = 'maintain';
         }
       }
+      if (details.gender) updateData.gender = details.gender; // Add this line
 
       // Use the /me/ custom action endpoint which always updates the current user
       await apiClient.patch('/users/me/', updateData);
