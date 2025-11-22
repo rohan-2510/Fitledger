@@ -11,8 +11,7 @@
       "enabled": true,
       "fallbackToCacheTimeout": 0,
       "checkAutomatically": "ON_LOAD",
-      "url": "https://u.expo.dev/4b9c87c3-e607-4264-8566-69d4341ec57b",
-      "channel": "preview"
+      "url": "https://u.expo.dev/4b9c87c3-e607-4264-8566-69d4341ec57b"
     },
     "runtimeVersion": {
       "policy": "appVersion"
@@ -49,17 +48,19 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-secure-store"
     ],
     "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "typedRoutes": true
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "4b9c87c3-e607-4264-8566-69d4341ec57b"
-      }
+      },
+      "apiUrl": "http://localhost:8000/api",
+      "apiNinjasKey": "SnisqheKGMBYV+u8IzrIjw==jrjXFRiLVqPxzyfR"
     }
   }
 }

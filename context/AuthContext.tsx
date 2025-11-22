@@ -1,9 +1,20 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
+import apiClient from '../app/api/apiClient';
+import * as SecureStore from 'expo-secure-store';
 
 export type User = {
+  id?: number;
   email: string;
+  username?: string;
+  full_name?: string;
   name?: string;
   profileCompleted?: boolean;
+  height_cm?: number;
+  weight_kg?: number;
+  age?: number;
+  goal?: string;
+  activity_level?: string;
+  profile_image_url?: string; // Add this line
 };
 
 export type ProfileDetails = {
@@ -12,15 +23,19 @@ export type ProfileDetails = {
   age?: string;
   activityLevel?: string;
   goal?: string;
+  profile_image_url?: string;
 };
 
 type AuthContextValue = {
   user: User | null;
   profile: ProfileDetails | null;
   isLoggedIn: boolean;
-  signIn: (email: string, name?: string) => void;
-  signOut: () => void;
-  saveProfile: (details: ProfileDetails) => void;
+  isLoading: boolean;
+  signIn: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, password: string, name: string, username?: string) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  saveProfile: (details: ProfileDetails) => Promise<{ success: boolean; error?: string }>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -28,24 +43,246 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileDetails | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const signIn = (email: string, name?: string) => {
-    setUser({ email, name, profileCompleted: !!profile });
+  // Load user from token on mount
+  useEffect(() => {
+    loadUserFromToken();
+  }, []);
+
+  const loadUserFromToken = async () => {
+    try {
+      const token = await apiClient.getAuthToken(); // Use apiClient's helper
+      if (token) {
+        // Fetch user profile from backend
+        await refreshUser();
+      }
+    } catch (error) {
+      console.error('Error loading user from token:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const signOut = () => {
-    setUser(null);
-    setProfile(null);
+  const refreshUser = async () => {
+    try {
+      // UserViewSet.list() returns a single user object (the current user)
+      const userData = await apiClient.get('/users/');
+      
+      if (userData && typeof userData === 'object') {
+        const user = userData as any;
+
+        // Determine profile completion status
+        const isProfileComplete = !!(user.height_cm && user.weight_kg && user.age);
+
+        console.log('Refresh User: User data from API:', userData);
+        setUser({
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          full_name: user.full_name,
+          name: user.full_name || user.username,
+          profileCompleted: isProfileComplete, // Use the determined status
+          height_cm: user.height_cm,
+          weight_kg: user.weight_kg,
+          age: user.age,
+          goal: user.goal,
+          activity_level: user.activity_level,
+          profile_image_url: user.profile_image_url,
+        });
+        console.log('Refresh User: User state set to:', user);
+        if (user.height_cm || user.weight_kg || user.age) {
+          setProfile({
+            height: user.height_cm?.toString(),
+            weight: user.weight_kg?.toString(),
+            age: user.age?.toString(),
+            activityLevel: user.activity_level,
+            goal: user.goal,
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('Error refreshing user:', error);
+      // If token is invalid, clear it
+      if (error.response?.status === 401) {
+        await signOut();
+      }
+    } finally {
+      // Ensure isLoading is set to false even if refresh fails
+      setIsLoading(false);
+    }
   };
 
-  const saveProfile = (details: ProfileDetails) => {
-    setProfile(details);
-    setUser((prev) => (prev ? { ...prev, profileCompleted: true } : prev));
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const attemptLogin = async (identifier: string) => {
+        const response = await apiClient.post('/auth/token/', {
+          username: identifier,
+          password: password,
+        });
+        return response;
+      };
+
+      let response;
+      let loginIdentifier = email; // First attempt: use email as username
+
+      try {
+        response = await attemptLogin(loginIdentifier);
+      } catch (error: any) {
+        // If first attempt fails with 'No active account', try with username from email
+        const errorMessage = error.response?.data?.detail || '';
+        if (errorMessage.includes('No active account') || errorMessage.includes('credentials')) {
+          loginIdentifier = email.split('@')[0]; // Second attempt: use username from email
+          console.log('Sign in failed with email, retrying with username:', loginIdentifier);
+          response = await attemptLogin(loginIdentifier);
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
+      }
+
+      // apiClient.post returns the data directly, not wrapped in .data
+      if (response && (response as any).access && (response as any).refresh) {
+        await apiClient.setAuthToken((response as any).access);
+        await apiClient.setRefreshToken((response as any).refresh);
+        await refreshUser();
+        console.log('Sign In: User state after refresh (success):', user);
+        return { success: true };
+      }
+      console.error('Invalid token response from server during sign in:', response);
+      return { success: false, error: 'Invalid response from server' };
+    } catch (error: any) {
+      console.error('Sign in error:', error.response?.data || error.message);
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Login failed. Please check your credentials.';
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const signUp = async (email: string, password: string, name: string, username?: string): Promise<{ success: boolean; error?: string }> => {
+    let createdUsername: string | undefined;
+    let userResponse: any; // Declare outside try block for catch access
+    
+    try {
+      const generatedUsername = username || email.split('@')[0];
+      
+      // First create the user
+      userResponse = await apiClient.post('/users/register/', {
+        email,
+        password,
+        username: generatedUsername,
+        full_name: name,
+      });
+
+      // Extract the actual username from the response (backend might modify it)
+      createdUsername = (userResponse as any).username || generatedUsername;
+      
+      console.log('Registration successful, attempting login with username:', createdUsername);
+      console.log('User registration response:', userResponse);
+
+      // Then login to get tokens using the actual username
+      // Add a small delay to ensure user is fully created
+      await new Promise(resolve => setTimeout(resolve, 300)); // Increased delay
+      
+      const loginResponse = await apiClient.post('/auth/token/', {
+        username: createdUsername,  // Use the username from registration response
+        password: password,
+      });
+      
+      console.log('Login response received:', loginResponse);
+
+      // apiClient.post returns the data directly, not wrapped in .data
+      const tokenData = loginResponse as any;
+      
+      if (tokenData && tokenData.access && tokenData.refresh) {
+        console.log('Tokens received, storing...');
+        await apiClient.setAuthToken(tokenData.access);
+        await apiClient.setRefreshToken(tokenData.refresh);
+
+        // Fetch user profile
+        await refreshUser();
+        console.log('Sign Up: User state after refresh (success):', user);
+        return { success: true };
+      }
+      
+      console.error('Invalid token response structure:', tokenData);
+      return { success: false, error: 'Registration successful but login failed - invalid token response structure' };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      
+      // Handle registration error
+      if (error.response?.status === 400 && error.response?.data) {
+        const data = error.response.data;
+        const errorMessage = data.detail || data.message || data.email?.[0] || data.username?.[0] || 'Registration failed';
+        return { success: false, error: errorMessage };
+      }
+      
+      // Handle token login error
+      if (error.response?.status === 401) {
+        const errorDetail = error.response?.data?.detail || error.response?.data?.message || '';
+        console.error('Token login failed after registration:', {
+          status: 401,
+          detail: errorDetail,
+          attemptedUsername: createdUsername,
+        });
+        return { 
+          success: false, 
+          error: errorDetail || (createdUsername ? `Registration successful but login failed. Please try logging in manually with username: ${createdUsername}` : 'Registration successful but login failed. Please try logging in manually.')
+        };
+      }
+      
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Registration failed';
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      console.log('AuthContext: Signing out and clearing tokens...');
+      console.trace('SignOut call stack:');
+      await apiClient.clearTokens();
+      setUser(null);
+      setProfile(null);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  const saveProfile = async (details: ProfileDetails): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Update user profile via API using /me/ endpoint
+      const updateData: any = {};
+      if (details.height) updateData.height_cm = parseFloat(details.height);
+      if (details.weight) updateData.weight_kg = parseFloat(details.weight);
+      if (details.age) updateData.age = parseInt(details.age);
+      if (details.activityLevel) updateData.activity_level = details.activityLevel.toLowerCase();
+      if (details.goal) {
+        // Map goal to backend format
+        if (details.goal.toLowerCase().includes('lose') || details.goal.toLowerCase().includes('cut')) {
+          updateData.goal = 'cut';
+        } else if (details.goal.toLowerCase().includes('gain') || details.goal.toLowerCase().includes('bulk')) {
+          updateData.goal = 'bulk';
+        } else {
+          updateData.goal = 'maintain';
+        }
+      }
+
+      // Use the /me/ custom action endpoint which always updates the current user
+      await apiClient.patch('/users/me/', updateData);
+      
+      // Update local state
+      setProfile(details);
+      await refreshUser();
+      console.log('Save Profile: User state after refresh (success):', user);
+      return { success: true };
+    } catch (error: any) {
+      console.error('Save profile error:', error);
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Failed to save profile';
+      return { success: false, error: errorMessage };
+    }
   };
 
   const value = useMemo(
-    () => ({ user, profile, isLoggedIn: !!user, signIn, signOut, saveProfile }),
-    [user, profile]
+    () => ({ user, profile, isLoggedIn: !!user, isLoading, signIn, signUp, signOut, saveProfile, refreshUser }),
+    [user, profile, isLoading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

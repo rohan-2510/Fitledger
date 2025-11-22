@@ -9,9 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 export default function TabLayout() {
   const [modalVisible, setModalVisible] = React.useState(false);
   const router = useRouter();
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, signOut } = useAuth();
 
-  // Placeholder handlers for modal actions
   const handleLogin = () => {
     setModalVisible(false);
     router.push('/login' as never);
@@ -23,24 +22,18 @@ export default function TabLayout() {
   const handleCheckUpdates = () => {
     setModalVisible(false);
     // Implement check updates logic
+    console.log('Checking for updates...');
+  };
+
+  const handleModalClose = () => {
+    setModalVisible(false);
+    // If user is logged in and closes the modal, and clicks sign out
+    // this should trigger a sign out. Otherwise, it just closes the modal.
+    // The ProfileModal now handles its own sign out button.
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={styles.topRightContainer}>
-        <TouchableOpacity onPress={() => {
-          if (isLoggedIn && user?.profileCompleted) {
-            router.push('/profile-details' as never);
-          } else {
-            setModalVisible(true);
-          }
-        }}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/40' }}
-            style={styles.profilePic}
-          />
-        </TouchableOpacity>
-      </View>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: Colors.primary,
@@ -111,11 +104,15 @@ export default function TabLayout() {
         /> */}
       </Tabs>
       <ProfileModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        key={isLoggedIn ? `profile-modal-${user?.id}` : 'profile-modal-logged-out'}
+        isVisible={modalVisible}
+        onClose={handleModalClose}
         onLogin={handleLogin}
         onCreateAccount={handleCreateAccount}
         onCheckUpdates={handleCheckUpdates}
+        isLoggedIn={isLoggedIn}
+        user={user}
+        onSignOut={signOut}
       />
     </View>
   );

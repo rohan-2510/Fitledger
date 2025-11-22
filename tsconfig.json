@@ -2,6 +2,9 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "declaration": true,
+    "composite": true,
+    "skipLibCheck": true,
     "paths": {
       "@/*": [
         "./*"

@@ -14,7 +14,7 @@ export default function ProfileDetailsScreen() {
     if (!isLoggedIn) {
       router.replace('/login');
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, router]);
 
   const handleLogout = () => {
     signOut();

@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signUp } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +16,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
       setError('Please fill in all fields.');
       return;
@@ -27,14 +27,26 @@ export default function RegisterScreen() {
       return;
     }
 
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const result = await signUp(email, password, name);
+      if (result.success) {
+        router.replace('/(tabs)');
+      } else {
+        setError(result.error || 'Registration failed. Please try again.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
       setLoading(false);
-      signIn(email, name);
-      router.replace('/(tabs)');
-    }, 1200);
+    }
   };
 
   return (

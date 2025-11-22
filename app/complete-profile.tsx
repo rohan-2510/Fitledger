@@ -15,20 +15,55 @@ export default function CompleteProfileScreen() {
   const [activityLevel, setActivityLevel] = useState('');
   const [goal, setGoal] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [activityOpen, setActivityOpen] = useState(false);
   const [goalOpen, setGoalOpen] = useState(false);
 
-  const activityOptions = ['Low', 'Moderate', 'High'];
-  const goalOptions = ['Lose Weight', 'Maintain', 'Gain Muscle'];
+  const activityOptions = ['Sedentary', 'Light', 'Moderate', 'Very Active', 'Extreme'];
+  const goalOptions = ['Cut', 'Maintain', 'Bulk'];
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!height || !weight || !age || !activityLevel || !goal) {
+      alert('Please fill in all fields.');
+      return;
+    }
+
     setSaving(true);
-    // Simulate saving and redirect
-    setTimeout(() => {
+    try {
+      // Map activity level to backend format
+      let mappedActivity = activityLevel.toLowerCase();
+      if (mappedActivity === 'low') mappedActivity = 'sedentary';
+      else if (mappedActivity === 'moderate') mappedActivity = 'moderate';
+      else if (mappedActivity === 'high') mappedActivity = 'very';
+
+      // Map goal to backend format
+      let mappedGoal = goal.toLowerCase();
+      if (mappedGoal.includes('lose') || mappedGoal.includes('cut')) {
+        mappedGoal = 'cut';
+      } else if (mappedGoal.includes('gain') || mappedGoal.includes('bulk')) {
+        mappedGoal = 'bulk';
+      } else {
+        mappedGoal = 'maintain';
+      }
+
+      const result = await saveProfile({ 
+        height, 
+        weight, 
+        age, 
+        activityLevel: mappedActivity, 
+        goal: mappedGoal 
+      });
+      
+      if (result.success) {
+        router.replace({ pathname: '/(tabs)', params: { profileSaved: 'true' } });
+      } else {
+        alert(result.error || 'Failed to save profile. Please try again.');
+        setSaving(false);
+      }
+    } catch (err: any) {
+      alert(err.message || 'An unexpected error occurred.');
       setSaving(false);
-      saveProfile({ height, weight, age, activityLevel, goal });
-      router.replace({ pathname: '/(tabs)', params: { profileSaved: 'true' } });
-    }, 1200);
+    }
   };
 
   return (

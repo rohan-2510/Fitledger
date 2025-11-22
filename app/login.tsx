@@ -14,7 +14,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
@@ -23,11 +23,18 @@ export default function LoginScreen() {
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const result = await signIn(email, password);
+      if (result.success) {
+        router.replace('/(tabs)');
+      } else {
+        setError(result.error || 'Login failed. Please try again.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
       setLoading(false);
-      signIn(email);
-      router.replace('/(tabs)');
-    }, 1200);
+    }
   };
 
   return (

@@ -1,20 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/Colors';
 import { ThemeTokens } from '../../constants/ThemeTokens';
-import { useCheckForUpdates } from '../hooks/useCheckForUpdates';
-
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext'; // Import useAuth
+import { ProfileImageDisplay } from '../../components/ProfileImageDisplay'; // Import ProfileImageDisplay
+import { ProfileModal } from '../../components/ProfileModal'; // Import ProfileModal
 
 export default function DashboardScreen() {
-  const { checkForUpdates } = useCheckForUpdates();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { user, isLoggedIn, signOut } = useAuth(); // Use useAuth hook
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for modal visibility
 
   useEffect(() => {
     if (params.profileSaved) {
@@ -23,8 +24,43 @@ export default function DashboardScreen() {
     }
   }, [params.profileSaved]);
 
+  // Handlers for ProfileModal actions
+  const handleLogin = () => {
+    setIsProfileModalVisible(false);
+    router.push('/login' as never);
+  };
+
+  const handleCreateAccount = () => {
+    setIsProfileModalVisible(false);
+    router.push('/register' as never);
+  };
+
+  const handleCheckUpdates = () => {
+    setIsProfileModalVisible(false);
+    console.log('Checking for updates...');
+  };
+
+  const handleViewProfile = () => {
+    setIsProfileModalVisible(false);
+    router.push('/profile-details' as never);
+  };
+
+  const handleCompleteProfile = () => {
+    setIsProfileModalVisible(false);
+    router.push('/complete-profile' as never);
+  };
+
   return (
     <ScrollView style={styles.container}>
+      {/* Profile Image Display - now inside ScrollView */}
+      <View style={styles.profileImageContainer}>
+        <ProfileImageDisplay
+          size={40}
+          onPress={() => setIsProfileModalVisible(true)}
+          profileImageUrl={user?.profile_image_url}
+        />
+      </View>
+
       {/* Header */}
       <View style={styles.header}>
         {showSuccess && (
@@ -32,14 +68,8 @@ export default function DashboardScreen() {
             <Text style={{color: 'white', textAlign: 'center'}}>Profile saved successfully!</Text>
           </View>
         )}
-        <Text style={styles.greeting}>Hello, Rohan!</Text>
-        <Text style={styles.subtitle}>Goal: Gain Muscles</Text>
-        <TouchableOpacity style={styles.profileImageContainer} onPress={() => router.push('./profile-details')}>
-          <Image
-            source={{ uri: 'https://img.freepik.com/free-vector/user-circles-set_78370-4704.jpg?semt=ais_hybrid&w=740&q=80' }}
-            style={styles.profileImage}
-          />
-        </TouchableOpacity>
+        <Text style={styles.greeting}>Hello, {user?.name || user?.username || 'Guest'}!</Text>
+        <Text style={styles.subtitle}>Goal: {user?.goal || 'Set your goal'}</Text>
       </View>
 
       {/* Stats Overview */}
@@ -133,21 +163,17 @@ export default function DashboardScreen() {
           Increase your protein intake to support muscle recovery. Try adding more chicken, fish, or plant-based proteins to your meals.
         </Text>
       </Card>
-      {/* <View style={{marginTop: 20, alignItems: 'center'}}>
-        <Text style={{fontSize: 10, opacity: 0.5, marginBottom: 10}}>
-          Last updated: {new Date().toLocaleString()}
-        </Text>
-        <Button 
-          title="Check for Updates" 
-          onPress={async () => {
-            const { isAvailable } = await checkForUpdates();
-            if (isAvailable) {
-              // The update will be handled by the hook
-            }
-          }}
-          style={{padding: 10}}
-        />
-      </View> */}
+      <ProfileModal
+        isVisible={isProfileModalVisible}
+        onClose={() => setIsProfileModalVisible(false)}
+        onLogin={handleLogin}
+        onCreateAccount={handleCreateAccount}
+        onCheckUpdates={handleCheckUpdates}
+        isLoggedIn={isLoggedIn}
+        user={user}
+        onSignOut={signOut}
+        key={isLoggedIn ? `profile-modal-${user?.id}` : 'profile-modal-logged-out'}
+      />
     </ScrollView>
   );
 }
@@ -180,13 +206,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     top: 40,
-  },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: 'white',
+    zIndex: 10, // Ensure it's above other content in the header
   },
   statsContainer: {
     flexDirection: 'row',

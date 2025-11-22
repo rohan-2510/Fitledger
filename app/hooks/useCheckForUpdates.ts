@@ -5,10 +5,6 @@ import { Alert, Platform } from 'react-native';
 
 type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'up-to-date' | 'error';
 
-type ErrorWithMessage = {
-  message: string;
-};
-
 export const useCheckForUpdates = () => {
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
