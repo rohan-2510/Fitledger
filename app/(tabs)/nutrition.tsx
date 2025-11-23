@@ -147,7 +147,7 @@ const NutritionScreen: React.FC = () => {
           calories: item.calories || 0,
           protein: item.protein || 0,
           carbs: item.carbs || 0,
-          fat: item.fat || 0 // Use 'fat' from backend response
+          fats: item.fats || 0 // Use 'fats' from backend response
         }));
       
         setSearchResults(foodItems);
@@ -162,7 +162,7 @@ const NutritionScreen: React.FC = () => {
           calories: item.calories || 0,
           protein: item.protein || 0,
           carbs: item.carbs || 0,
-          fat: item.fat || 0 // Use 'fat' from backend response
+          fats: item.fats || 0 // Use 'fats' from backend response
         }));
         setSearchResults(foodItems);
         if (foodItems.length === 0) {
@@ -199,9 +199,8 @@ const NutritionScreen: React.FC = () => {
       alert('Please select a meal first');
       return;
     }
-
+    console.log('Adding food:', food);
     try {
-      // Use food_id for backend, but allow it to be optional if custom_name is provided
       const logData: any = {
         custom_name: food.name,
         calories: food.calories || 0,
@@ -210,13 +209,6 @@ const NutritionScreen: React.FC = () => {
         fats: food.fats || 0, // Ensure this is 'fats' from the FoodItem interface
         quantity: 1,
       };
-
-      // If food has an ID (from database), use it, otherwise use custom_name only
-      // Temporarily disabling food_id mapping from USDA API results
-      // as it likely doesn't match local FoodItem IDs.
-      // if (food.id && !isNaN(parseInt(food.id))) {
-      //   logData.food_id = parseInt(food.id);
-      // }
 
       const response = await api.post('/meals/logs/', logData);
       

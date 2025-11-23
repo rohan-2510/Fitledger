@@ -1,15 +1,23 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Dimensions,
+  TouchableOpacity,
+  Image
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { ThemeTokens } from '../../constants/ThemeTokens';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useAuth } from '../../context/AuthContext'; // Import useAuth
-import { ProfileImageDisplay } from '../../components/ProfileImageDisplay'; // Import ProfileImageDisplay
-import { ProfileModal } from '../../components/ProfileModal'; // Import ProfileModal
-import apiClient from '../api/apiClient'; // Import apiClient
+import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
+import apiClient from '../api/apiClient';
+import { useAuth } from '../../context/AuthContext';
+import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
+import { ProfileModal } from '../../components/ProfileModal';
 
 interface MealLog {
   id: number;
@@ -36,6 +44,41 @@ interface WorkoutLog {
   timestamp: string;
 }
 
+// Daily fitness tips
+const fitnessTips = [
+  "💪 Stay hydrated! Drink at least 8 glasses of water daily.",
+  "🏃‍♂️ Add 10 minutes to your cardio routine for extra endurance.",
+  "🥚 Protein within 30 minutes after workout helps muscle recovery.",
+  "😴 Get 7-9 hours of quality sleep for optimal performance.",
+  "🧘‍♀️ Stretch for 5 minutes before every workout to prevent injury.",
+  "🥗 Eat colorful vegetables for essential vitamins and minerals.",
+  "🎯 Set specific, measurable fitness goals for better results.",
+  "🔄 Vary your workouts to keep muscles challenged and engaged.",
+  "🍇 Add antioxidant-rich fruits to reduce inflammation.",
+  "⚖️ Balance strength training with flexibility work.",
+  "🚶‍♂️ Take the stairs whenever possible for extra activity.",
+  "🎵 Listen to upbeat music to boost workout motivation.",
+  "📱 Track your progress to stay motivated and accountable.",
+  "🥜 Healthy fats like nuts support hormone production.",
+  "🏋️‍♂️ Focus on form over weight for better results.",
+  "🌅 Morning workouts boost metabolism all day.",
+  "🥤 Replace sugary drinks with water or herbal tea.",
+  "🤝 Workout with a friend for extra motivation.",
+  "🎯 Progressive overload is key to muscle growth.",
+  "🌱 Plant-based proteins can be just as effective as animal proteins.",
+];
+
+const { width } = Dimensions.get('window');
+
+// Gym images data
+const gymImages = [
+  { id: 1, source: { uri: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800' }, title: 'Strength Training' },
+  { id: 2, source: { uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800' }, title: 'Cardio Workouts' },
+  { id: 3, source: { uri: 'https://plus.unsplash.com/premium_photo-1661439604043-c069303164dd?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8bWFuJTIwbGlmdGluZyUyMHdlaWdodHN8ZW58MHx8MHx8fDA%3D' }, title: 'Weight Lifting' },
+  { id: 4, source: { uri: 'https://images.unsplash.com/photo-1550345332-09e3ac987658?w=800' }, title: 'CrossFit' },
+  { id: 5, source: { uri: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800' }, title: 'Yoga & Flexibility' },
+];
+
 export default function DashboardScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -45,6 +88,7 @@ export default function DashboardScreen() {
   const [dailyCalories, setDailyCalories] = useState<number>(0);
   const [dailyExpenses, setDailyExpenses] = useState<number>(0);
   const [latestWorkout, setLatestWorkout] = useState<WorkoutLog | null>(null);
+  const [dailyTip, setDailyTip] = useState<string>('');
 
   useEffect(() => {
     if (params.profileSaved) {
@@ -52,6 +96,14 @@ export default function DashboardScreen() {
       setTimeout(() => setShowSuccess(false), 2000);
     }
   }, [params.profileSaved]);
+
+  // Set daily tip based on current date
+  useEffect(() => {
+    const today = new Date();
+    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+    const tipIndex = dayOfYear % fitnessTips.length;
+    setDailyTip(fitnessTips[tipIndex]);
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -63,6 +115,7 @@ export default function DashboardScreen() {
       }
 
       const today = new Date().toISOString().split('T')[0];
+      console.log('Fetching dashboard data for date:', today);
 
       // Fetch daily meal calories
       try {
@@ -77,7 +130,9 @@ export default function DashboardScreen() {
       // Fetch daily expenses
       try {
         const expenseLogs = await apiClient.get<ExpenseItem[]>(`/expenses/logs/?date=${today}`);
-        const totalDailyExpenses = expenseLogs.reduce((sum, item) => sum + item.amount, 0);
+        console.log('Expense logs response:', expenseLogs);
+        const totalDailyExpenses = expenseLogs.reduce((sum, item) => sum + Number(item.amount), 0);
+        console.log('Total daily expenses:', totalDailyExpenses);
         setDailyExpenses(totalDailyExpenses);
       } catch (error) {
         console.error('Error fetching daily expenses:', error);
@@ -203,43 +258,44 @@ export default function DashboardScreen() {
         </View>
       </Card>
 
-      {/* Progress Overview */}
-      <Card style={styles.sectionCard}>
+      {/* Gym Images Carousel */}
+      <View style={styles.gymImagesSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Progress Overview</Text>
-          <Text style={styles.seeAllText}>This Week</Text>
+          <Text style={styles.sectionTitle}>Workout Inspiration</Text>
         </View>
-        <View style={styles.chartPlaceholder}>
-          <Text style={styles.chartPlaceholderText}>Chart will be displayed here</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.gymImagesContainer}
+        >
+          {gymImages.map((image) => (
+            <TouchableOpacity key={image.id} style={styles.gymImageCard}>
+              <Image source={image.source} style={styles.gymImage} />
+              <Text style={styles.gymImageTitle}>{image.title}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Daily Tip */}
+      <Card style={styles.dailyTipCard}>
+        <View style={styles.tipHeader}>
+          <MaterialIcons name="lightbulb-outline" size={24} color={Colors.primary} />
+          <Text style={styles.tipTitle}>Daily Tip</Text>
         </View>
+        <Text style={styles.tipText}>{dailyTip}</Text>
+        <TouchableOpacity 
+          style={styles.newTipButton}
+          onPress={() => {
+            const randomIndex = Math.floor(Math.random() * fitnessTips.length);
+            setDailyTip(fitnessTips[randomIndex]);
+          }}
+        >
+          <MaterialIcons name="refresh" size={16} color={Colors.primary} />
+          <Text style={styles.newTipText}>Get New Tip</Text>
+        </TouchableOpacity>
       </Card>
 
-      {/* AI Insights */}
-      <Card style={styles.sectionCard}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <MaterialIcons name="insights" size={20} color={Colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>AI Insights</Text>
-          </View>
-          <MaterialIcons name="more-vert" size={20} color={Colors.gray} />
-        </View>
-        <Text style={styles.insightText}>
-          Your workout consistency is improving! Keep it up to reach your goals faster.
-        </Text>
-      </Card>
-
-      {/* Diet Recommendation */}
-      <Card style={[styles.sectionCard, { marginBottom: 24 }]}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleRow}>
-            <MaterialIcons name="restaurant" size={20} color={Colors.primary} style={styles.sectionIcon} />
-            <Text style={styles.sectionTitle}>Diet Recommendation</Text>
-          </View>
-        </View>
-        <Text style={styles.insightText}>
-          Increase your protein intake to support muscle recovery. Try adding more chicken, fish, or plant-based proteins to your meals.
-        </Text>
-      </Card>
       <ProfileModal
         isVisible={isProfileModalVisible}
         onClose={() => setIsProfileModalVisible(false)}
@@ -375,5 +431,70 @@ const styles = StyleSheet.create({
   insightText: {
     color: Colors.text,
     lineHeight: 22,
+  },
+  gymImagesSection: {
+    marginHorizontal: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.md,
+  },
+  gymImagesContainer: {
+    paddingHorizontal: ThemeTokens.spacing.sm,
+  },
+  gymImageCard: {
+    width: 200,
+    marginRight: ThemeTokens.spacing.md,
+    borderRadius: ThemeTokens.radius.lg,
+    overflow: 'hidden',
+    backgroundColor: Colors.card,
+    elevation: 2,
+  },
+  gymImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: ThemeTokens.radius.lg,
+  },
+  gymImageTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    textAlign: 'center',
+    padding: ThemeTokens.spacing.sm,
+  },
+  dailyTipCard: {
+    marginHorizontal: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.md,
+    padding: ThemeTokens.spacing.lg,
+    backgroundColor: Colors.primary + '10', // Light background with primary tint
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: ThemeTokens.spacing.sm,
+  },
+  tipTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginLeft: ThemeTokens.spacing.sm,
+  },
+  tipText: {
+    fontSize: 16,
+    color: Colors.text,
+    lineHeight: 24,
+    marginBottom: ThemeTokens.spacing.md,
+  },
+  newTipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: ThemeTokens.spacing.xs,
+    paddingHorizontal: ThemeTokens.spacing.sm,
+  },
+  newTipText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '500',
+    marginLeft: ThemeTokens.spacing.xs,
   },
 });

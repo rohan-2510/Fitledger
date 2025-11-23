@@ -482,13 +482,13 @@ export default function ExpenseScreen() {
                 </View>
               </View>
 
-              <View style={styles.formGroup}>
+              {/* <View style={styles.formGroup}>
                 <Text style={styles.label}>Date</Text>
                 <TouchableOpacity onPress={() => console.log('Open date picker')} style={styles.datePickerButton}>
                   <MaterialIcons name="calendar-today" size={20} color={Colors.text} />
                   <Text style={styles.datePickerText}>{expenseDate.toLocaleDateString()}</Text>
                 </TouchableOpacity>
-              </View>
+              </View> */}
             </ScrollView>
 
             <View style={styles.modalFooter}>
