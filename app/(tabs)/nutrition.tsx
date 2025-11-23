@@ -1,6 +1,6 @@
 // app/(tabs)/nutrition.tsx
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card } from 'react-native-paper';
 import { Button } from '../../components/Button';
@@ -52,6 +52,9 @@ const NutritionScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+
+  // Debounce for search input
+  const debouncedSearch = useRef<number | null>(null);
 
   // When user logs out, reset all relevant states
   useEffect(() => {
@@ -422,13 +425,28 @@ const NutritionScreen: React.FC = () => {
                   style={styles.searchInput}
                   placeholder="Search for food..."
                   value={searchQuery}
-                  onChangeText={setSearchQuery}
+                  onChangeText={(text) => {
+                    setSearchQuery(text);
+                    if (debouncedSearch.current) {
+                      clearTimeout(debouncedSearch.current);
+                    }
+                    debouncedSearch.current = setTimeout(() => {
+                      if (text.trim()) {
+                        searchFoods();
+                      }
+                    }, 500); // Debounce for 500ms
+                  }}
                   onSubmitEditing={searchFoods}
                   placeholderTextColor={Colors.gray}
                 />
                 <Button
                   title={isSearching ? 'Searching...' : 'Search'}
-                  onPress={searchFoods}
+                  onPress={() => {
+                    if (debouncedSearch.current) {
+                      clearTimeout(debouncedSearch.current);
+                    }
+                    searchFoods();
+                  }}
                   variant="primary"
                   style={styles.searchButton}
                   disabled={isSearching}

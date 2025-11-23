@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<ProfileDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0); // Add this line
+  const [initialLoad, setInitialLoad] = useState(true); // New state to track initial load
 
   // Load user from token on mount
   useEffect(() => {
@@ -59,15 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserFromToken = async () => {
     try {
+      // Ensure API_BASE is initialized before any API calls
+      await apiClient.ensureApiBaseInitialized();
+      console.log('[AuthContext] API Base ensured. Attempting to load tokens...');
       const token = await apiClient.getAuthToken(); // Use apiClient's helper
       if (token) {
-        // Fetch user profile from backend
+        console.log('[AuthContext] Auth token found. Refreshing user...');
         await refreshUser();
+      } else {
+        console.log('[AuthContext] No auth token found.');
       }
     } catch (error) {
-      console.error('Error loading user from token:', error);
+      console.error('[AuthContext] Error loading user from token:', error);
     } finally {
-      setIsLoading(false);
+      setInitialLoad(false); // Mark initial load complete
+      setIsLoading(false); // Set isLoading to false after initial attempt
     }
   };
 
@@ -118,16 +125,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error refreshing user:', error.response?.data || error.message);
       // If token is invalid, clear it
       if (error.response?.status === 401) {
+        console.log('[AuthContext] 401 on refreshUser. Signing out...');
         await signOut();
       }
     } finally {
-      // Ensure isLoading is set to false even if refresh fails
-      setIsLoading(false);
+      // Only set isLoading to false if the initial load is complete
+      if (!initialLoad) {
+        setIsLoading(false);
+      }
     }
   };
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      // Ensure API_BASE is initialized before sign-in attempt
+      await apiClient.ensureApiBaseInitialized();
+      console.log('[AuthContext] Signing in...');
       const attemptLogin = async (identifier: string) => {
         const response = await apiClient.post('/auth/token/', {
           username: identifier,
@@ -255,6 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
       // Additional logic to clear other app-wide states can be added here if needed
       console.log('AuthContext: User and profile state cleared.');
+      triggerDashboardRefresh(); // Trigger dashboard refresh on signOut
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -300,8 +314,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }; // Add this function
 
   const value = useMemo(
-    () => ({ user, profile, isLoggedIn: !!user, isLoading, signIn, signUp, signOut, saveProfile, refreshUser, dashboardRefreshKey, triggerDashboardRefresh }), // Update value
-    [user, profile, isLoading, dashboardRefreshKey] // Update dependencies
+    () => ({ user, profile, isLoggedIn: !!user, isLoading: isLoading || initialLoad, signIn, signUp, signOut, saveProfile, refreshUser, dashboardRefreshKey, triggerDashboardRefresh }), // Update isLoading to consider initialLoad
+    [user, profile, isLoading, dashboardRefreshKey, initialLoad] // Update dependencies
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

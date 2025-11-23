@@ -309,33 +309,15 @@ export default function ExpenseScreen() {
           </View>
         </Card>
 
-        {/* Tabs */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'expenses' && styles.activeTab]}
-            onPress={() => setActiveTab('expenses')}
-          >
-            <Text style={[styles.tabText, activeTab === 'expenses' && styles.activeTabText]}>
-              Expenses
-            </Text>
-          </TouchableOpacity>
-          {/*<TouchableOpacity 
-            style={[styles.tab, activeTab === 'income' && styles.activeTab]}
-            onPress={() => setActiveTab('income')}
-          >
-            <Text style={[styles.tabText, activeTab === 'income' && styles.activeTabText]}>
-              Income
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'savings' && styles.activeTab]}
-            onPress={() => setActiveTab('savings')}
-          >
-            <Text style={[styles.tabText, activeTab === 'savings' && styles.activeTabText]}>
-              Savings
-            </Text>
-          </TouchableOpacity>*/}
+        {/* Header for Expenses */}
+        <View style={styles.expenseHeaderContainer}>
+          <Text style={styles.expenseHeaderText}>
+            Expenses
+          </Text>
         </View>
+
+        {/* Tabs */}
+        
 
         {/* Categories */}
         <View style={styles.sectionHeader}>
@@ -414,12 +396,6 @@ export default function ExpenseScreen() {
               <MaterialIcons name="receipt" size={48} color={Colors.lightGray} />
               <Text style={styles.emptyStateText}>No transactions yet</Text>
               <Text style={styles.emptyStateSubtext}>Start adding your expenses to track them here</Text>
-              {/* <Button 
-   334|                title="Add Expense" 
-   335|                onPress={openModal} 
-   336|                style={styles.addExpenseButton}
-   337|                icon={<Ionicons name="add" size={20} color="white" />}
-   338|              /> */}
             </View>
           )}
         </Card>
@@ -682,6 +658,25 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  expenseHeaderContainer: {
+    marginHorizontal: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.lg,
+    marginTop: ThemeTokens.spacing.md,
+    backgroundColor: 'white',
+    borderRadius: ThemeTokens.radius.md,
+    paddingVertical: ThemeTokens.spacing.md,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  expenseHeaderText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.text,
   },
   tabsContainer: {
     flexDirection: 'row',

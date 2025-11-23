@@ -35,41 +35,48 @@ const getApiBase = async () => {
 };
 
 let API_BASE: string;
+let apiBaseInitialized = false; // Add this flag
 
 // Initialize API_BASE when the module loads
-(async () => {
-  API_BASE = await getApiBase();
-  console.log('API_BASE initialized to:', API_BASE);
-})();
+const ensureApiBaseInitialized = async () => {
+  if (!apiBaseInitialized) {
+    API_BASE = await getApiBase();
+    apiBaseInitialized = true;
+    console.log('API_BASE initialized to:', API_BASE);
+  }
+};
+
+// Call immediately to start initialization
+ensureApiBaseInitialized();
 
 // Platform-specific storage helpers
 // Use SecureStore for native, localStorage for web
 const isWeb = Platform.OS === 'web';
 
 const getSecureItem = async (key: string): Promise<string | null> => {
-  console.log(`Storage: Attempting to get item '${key}' (isWeb: ${isWeb})`);
+  console.log(`[Storage] Attempting to get item '${key}' (isWeb: ${isWeb})`);
   try {
     if (isWeb) {
       const item = localStorage.getItem(key);
-      console.log(`Storage: localStorage.getItem('${key}') returned:`, item ? 'Token Found' : 'No Token');
+      console.log(`[Storage] localStorage.getItem('${key}') returned:`, item ? 'Token Found' : 'No Token');
       return item;
     } else {
       const item = await SecureStore.getItemAsync(key);
-      console.log(`Storage: SecureStore.getItemAsync('${key}') returned:`, item ? 'Token Found' : 'No Token');
+      console.log(`[Storage] SecureStore.getItemAsync('${key}') returned:`, item ? 'Token Found' : 'No Token');
       return item;
     }
   } catch (error) {
-    console.error('Storage: Error getting item from primary store:', error);
+    console.error(`[Storage] Error getting item '${key}' from primary store:`, error);
     // Fallback to localStorage on error for native
     if (!isWeb) {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           const item = localStorage.getItem(key);
-          console.log(`Storage: Fallback localStorage.getItem('${key}') returned:`, item ? 'Token Found' : 'No Token');
+          console.log(`[Storage] Fallback localStorage.getItem('${key}') returned:`, item ? 'Token Found' : 'No Token');
           return item;
         }
       } catch (e) {
-        console.error('Storage: Error getting item from fallback localStorage:', e);
+        console.error(`[Storage] Error getting item '${key}' from fallback localStorage:`, e);
       }
     }
     return null;
@@ -77,26 +84,26 @@ const getSecureItem = async (key: string): Promise<string | null> => {
 };
 
 const setSecureItem = async (key: string, value: string): Promise<void> => {
-  console.log(`Storage: Attempting to set item '${key}' (isWeb: ${isWeb})`);
+  console.log(`[Storage] Attempting to set item '${key}' (isWeb: ${isWeb})`);
   try {
     if (isWeb) {
       localStorage.setItem(key, value);
-      console.log(`Storage: localStorage.setItem('${key}') successful.`);
+      console.log(`[Storage] localStorage.setItem('${key}') successful.`);
     } else {
       await SecureStore.setItemAsync(key, value);
-      console.log(`Storage: SecureStore.setItemAsync('${key}') successful.`);
+      console.log(`[Storage] SecureStore.setItemAsync('${key}') successful.`);
     }
   } catch (error) {
-    console.error('Storage: Error setting item to primary store:', error);
+    console.error(`[Storage] Error setting item '${key}' to primary store:`, error);
     // Fallback to localStorage on error for native
     if (!isWeb) {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           localStorage.setItem(key, value);
-          console.log(`Storage: Fallback localStorage.setItem('${key}') successful.`);
+          console.log(`[Storage] Fallback localStorage.setItem('${key}') successful.`);
         }
       } catch (e) {
-        console.error('Storage: Error setting item to fallback localStorage:', e);
+        console.error(`[Storage] Error setting item '${key}' to fallback localStorage:`, e);
         throw error; // Re-throw original error if fallback also fails
       }
     }
@@ -104,26 +111,26 @@ const setSecureItem = async (key: string, value: string): Promise<void> => {
 };
 
 const removeSecureItem = async (key: string): Promise<void> => {
-  console.log(`Storage: Attempting to remove item '${key}' (isWeb: ${isWeb})`);
+  console.log(`[Storage] Attempting to remove item '${key}' (isWeb: ${isWeb})`);
   try {
     if (isWeb) {
       localStorage.removeItem(key);
-      console.log(`Storage: localStorage.removeItem('${key}') successful.`);
+      console.log(`[Storage] localStorage.removeItem('${key}') successful.`);
     } else {
       await SecureStore.deleteItemAsync(key);
-      console.log(`Storage: SecureStore.deleteItemAsync('${key}') successful.`);
+      console.log(`[Storage] SecureStore.deleteItemAsync('${key}') successful.`);
     }
   } catch (error) {
-    console.error('Storage: Error removing item from primary store:', error);
+    console.error(`[Storage] Error removing item '${key}' from primary store:`, error);
     // Fallback to localStorage on error for native
     if (!isWeb) {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           localStorage.removeItem(key);
-          console.log(`Storage: Fallback localStorage.removeItem('${key}') successful.`);
+          console.log(`[Storage] Fallback localStorage.removeItem('${key}') successful.`);
         }
       } catch (e) {
-        console.error('Storage: Error removing item from fallback localStorage:', e);
+        console.error(`[Storage] Error removing item '${key}' from fallback localStorage:`, e);
       }
     }
   }
@@ -136,25 +143,32 @@ interface TokenResponse {
 
 // Refresh token helper
 const refreshAuthToken = async (): Promise<boolean> => {
+  console.log('[Auth] Attempting token refresh...');
   try {
     const refreshToken = await getSecureItem('refreshToken');
     if (!refreshToken) {
+      console.log('[Auth] No refresh token found. Cannot refresh.');
       return false;
     }
+    console.log('[Auth] Refresh token found, sending to backend...');
     const response = await axios.post(`${API_BASE}/auth/token/refresh/`, {
       refresh: refreshToken,
     });
     if ((response.data as TokenResponse).access) {
+      console.log('[Auth] New access token received. Storing...');
       await setSecureItem('authToken', (response.data as TokenResponse).access);
+      console.log('[Auth] Access token stored. Refresh successful.');
       return true;
     }
     // If access token is not in response, something is wrong, clear all tokens
+    console.warn('[Auth] Refresh response missing access token. Clearing all tokens.');
     await removeSecureItem('authToken');
     await removeSecureItem('refreshToken');
     return false;
   } catch (error) {
-    console.error('Token refresh failed:', error);
+    console.error('[Auth] Token refresh failed:', error);
     // Explicitly remove both tokens on any refresh failure
+    console.log('[Auth] Clearing all tokens due to refresh failure.');
     await removeSecureItem('authToken');
     await removeSecureItem('refreshToken');
     return false;
@@ -175,10 +189,10 @@ const api = async <T = any>(
     const safeData = data && typeof data === 'object' && 'password' in data 
       ? { ...data, password: '***' } 
       : data;
-    console.log('API call started:', { method, endpoint, data: safeData });
-    console.log('Retrieved token:', token ? 'Token exists' : 'No token found');
+    console.log('[API] Call started:', { method, endpoint, data: safeData });
+    console.log('[API] Retrieved token:', token ? 'Token exists' : 'No token found');
   } catch (error) {
-    console.error('Error in getSecureItem:', error);
+    console.error('[API] Error in getSecureItem:', error);
     // Don't throw here to allow the app to continue
     token = null;
   }
@@ -202,7 +216,7 @@ const api = async <T = any>(
       timeout: 10000,
     });
 
-    console.log('API Response:', {
+    console.log('[API] Response:', {
       status: response.status,
       url,
       method,
@@ -211,7 +225,7 @@ const api = async <T = any>(
 
     return response.data;
   } catch (error: any) {
-    console.error('API Error:', {
+    console.error('[API] Error:', {
       message: error.message,
       status: error.response?.status,
       url: error.config?.url,
@@ -221,8 +235,10 @@ const api = async <T = any>(
     
     // If unauthorized and skipAuthRefresh is false, try to refresh token
     if (error.response?.status === 401 && !skipAuthRefresh && method !== 'post') {
+      console.log('[API] 401 Unauthorized. Attempting token refresh and retry...');
       const refreshed = await refreshAuthToken();
       if (refreshed) {
+        console.log('[API] Token refreshed successfully. Retrying original request...');
         // Retry the original request after refreshing
         try {
           const newToken = await getSecureItem('authToken');
@@ -235,12 +251,14 @@ const api = async <T = any>(
               headers,
               timeout: 10000,
             });
+            console.log('[API] Original request retried successfully.', retryResponse.status);
             return retryResponse.data;
           }
         } catch (retryError) {
-          console.error('Retry after refresh failed:', retryError);
+          console.error('[API] Retry after refresh failed:', retryError);
         }
       }
+      console.log('[API] Token refresh failed or not attempted. Clearing tokens and throwing original error.');
       // If refresh failed or was not attempted, clear tokens
       await removeSecureItem('authToken');
       await removeSecureItem('refreshToken');
@@ -275,6 +293,7 @@ const apiClient = {
   },
   // Refresh token helper
   refreshAuthToken,
+  ensureApiBaseInitialized, // Expose the new function
 };
 
 export default apiClient;
