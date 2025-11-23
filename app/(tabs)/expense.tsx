@@ -51,14 +51,35 @@ const expenseCategories: Category[] = [
 
 export default function ExpenseScreen() {
   const router = useRouter();
-  const { user, isLoggedIn, signOut } = useAuth();
+  const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth();
   const [activeTab, setActiveTab] = useState('expenses');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for profile modal
+  const [monthlyBudget, setMonthlyBudget] = useState(5000); // New state for monthly budget
+  const [editBudgetModalVisible, setEditBudgetModalVisible] = useState(false); // New state for edit budget modal
+  const [newBudget, setNewBudget] = useState(''); // State for new budget input
   
+  // Reset states when user logs out
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setActiveTab('expenses');
+      setSelectedCategoryFilter('all');
+      setExpenses([]);
+      setDescription('');
+      setAmount('');
+      setSelectedCategory(null);
+      setExpenseDate(new Date());
+      setModalVisible(false);
+      setIsProfileModalVisible(false);
+      setMonthlyBudget(5000); // Reset monthly budget on logout
+      setEditBudgetModalVisible(false); // Close budget edit modal on logout
+      setNewBudget(''); // Clear new budget input on logout
+    }
+  }, [isLoggedIn]);
+
   // Form state
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -82,9 +103,9 @@ export default function ExpenseScreen() {
       setExpenses(fetchedExpenses);
     } catch (error: any) {
       console.error('Error loading expenses:', error);
-      if (error.response?.status !== 401) {
+      // if (error.response?.status !== 401) {
         Alert.alert('Error', 'Failed to load expenses. Please try again.');
-      }
+      // }
       setExpenses([]);
     } finally {
       setLoading(false);
@@ -128,6 +149,7 @@ export default function ExpenseScreen() {
       resetForm();
       await loadExpenses();
       Alert.alert('Success', 'Expense logged successfully!');
+      triggerDashboardRefresh(); // Trigger dashboard refresh
     } catch (error: any) {
       console.error('Error saving expense:', error);
       Alert.alert(
@@ -138,7 +160,7 @@ export default function ExpenseScreen() {
   };
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const monthlyBudget = 5000; // This should ideally come from user settings or API
+  // const monthlyBudget = 5000; // This should ideally come from user settings or API
   const budgetUsed = (totalExpenses / monthlyBudget) * 100;
 
   const filteredExpenses = expenses.filter((expense) => {
@@ -202,6 +224,31 @@ export default function ExpenseScreen() {
     router.push('/complete-profile' as never);
   };
 
+  const handleSaveBudget = async () => { // Made function async
+    const parsedBudget = parseFloat(newBudget);
+    if (isNaN(parsedBudget) || parsedBudget <= 0) {
+      Alert.alert('Error', 'Please enter a valid positive number for the budget.');
+      return;
+    }
+    try {
+      await apiClient.patch('/users/me/', { monthly_budget: parsedBudget });
+      setMonthlyBudget(parsedBudget);
+      setEditBudgetModalVisible(false);
+      setNewBudget('');
+      Alert.alert('Success', 'Monthly budget updated successfully!');
+      // Refresh user context to ensure the budget is updated globally
+      await user?.id; // This line is not needed, refreshUser will handle it
+      // Also trigger a dashboard refresh to update any displayed budget info
+      triggerDashboardRefresh();
+    } catch (error: any) {
+      console.error('Error saving monthly budget:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.detail || 'Failed to update monthly budget. Please try again.'
+      );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -232,7 +279,10 @@ export default function ExpenseScreen() {
             <Button 
               title="Edit" 
               variant="text" 
-              onPress={() => {}} 
+              onPress={() => {
+                setNewBudget(monthlyBudget.toString()); // Pre-fill with current budget
+                setEditBudgetModalVisible(true);
+              }} 
               style={styles.editButton}
               textStyle={{ fontSize: 14 }}
             />
@@ -291,7 +341,7 @@ export default function ExpenseScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Categories</Text>
           <TouchableOpacity onPress={() => setSelectedCategoryFilter('all')}>
-            <Text style={styles.seeAllText}>See All</Text>
+          <Text style={styles.seeAllText}>See All</Text>
           </TouchableOpacity>
         </View>
         
@@ -475,6 +525,50 @@ export default function ExpenseScreen() {
               <Button
                 title="Save Expense"
                 onPress={saveExpense}
+                style={styles.modalButton}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Budget Modal */}
+      <Modal
+        visible={editBudgetModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditBudgetModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Monthly Budget</Text>
+              <TouchableOpacity onPress={() => setEditBudgetModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>New Monthly Budget (₹) *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newBudget}
+                  onChangeText={setNewBudget}
+                  keyboardType="numeric"
+                  placeholder="e.g., 7500"
+                />
+              </View>
+            </View>
+            <View style={styles.modalFooter}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={() => setEditBudgetModalVisible(false)}
+                style={styles.modalButton}
+              />
+              <Button
+                title="Save Budget"
+                onPress={handleSaveBudget}
                 style={styles.modalButton}
               />
             </View>

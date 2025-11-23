@@ -39,7 +39,7 @@ interface WorkoutLog {
 export default function DashboardScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { user, isLoggedIn, signOut } = useAuth(); // Use useAuth hook
+  const { user, isLoggedIn, signOut, dashboardRefreshKey } = useAuth(); // Use useAuth hook
   const [showSuccess, setShowSuccess] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for modal visibility
   const [dailyCalories, setDailyCalories] = useState<number>(0);
@@ -55,7 +55,12 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!isLoggedIn) return;
+      if (!isLoggedIn) {
+        setDailyCalories(0);
+        setDailyExpenses(0);
+        setLatestWorkout(null);
+        return;
+      }
 
       const today = new Date().toISOString().split('T')[0];
 
@@ -94,7 +99,7 @@ export default function DashboardScreen() {
     };
 
     fetchDashboardData();
-  }, [isLoggedIn]); // Refetch when login status changes
+  }, [isLoggedIn, dashboardRefreshKey]); // Refetch when login status changes or dashboardRefreshKey changes
 
   // Handlers for ProfileModal actions
   const handleLogin = () => {

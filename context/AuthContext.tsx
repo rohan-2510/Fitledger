@@ -17,6 +17,7 @@ export type User = {
   profile_image_url?: string;
   gender?: string;
   macros?: { calories: number; protein: number; carbs: number; fat: number; }; // Add this line
+  monthly_budget?: number; // Add this line
 };
 
 export type ProfileDetails = {
@@ -39,6 +40,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   saveProfile: (details: ProfileDetails) => Promise<{ success: boolean; error?: string }>;
   refreshUser: () => Promise<void>;
+  dashboardRefreshKey: number; // Add this line
+  triggerDashboardRefresh: () => void; // Add this line
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0); // Add this line
 
   // Load user from token on mount
   useEffect(() => {
@@ -94,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           profile_image_url: user.profile_image_url,
           gender: user.gender,
           macros: user.macros, // Add this line to set macros
+          monthly_budget: user.monthly_budget, // Add this line
         });
         console.log('Refresh User: User state set to:', user);
         if (user.height_cm || user.weight_kg || user.age) {
@@ -246,8 +251,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('AuthContext: Signing out and clearing tokens...');
       console.trace('SignOut call stack:');
       await apiClient.clearTokens();
-      setUser(null);
-      setProfile(null);
+    setUser(null);
+    setProfile(null);
+      // Additional logic to clear other app-wide states can be added here if needed
+      console.log('AuthContext: User and profile state cleared.');
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -277,7 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await apiClient.patch('/users/me/', updateData);
       
       // Update local state
-      setProfile(details);
+    setProfile(details);
       await refreshUser();
       console.log('Save Profile: User state after refresh (success):', user);
       return { success: true };
@@ -288,9 +295,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const triggerDashboardRefresh = () => {
+    setDashboardRefreshKey(prev => prev + 1);
+  }; // Add this function
+
   const value = useMemo(
-    () => ({ user, profile, isLoggedIn: !!user, isLoading, signIn, signUp, signOut, saveProfile, refreshUser }),
-    [user, profile, isLoading]
+    () => ({ user, profile, isLoggedIn: !!user, isLoading, signIn, signUp, signOut, saveProfile, refreshUser, dashboardRefreshKey, triggerDashboardRefresh }), // Update value
+    [user, profile, isLoading, dashboardRefreshKey] // Update dependencies
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

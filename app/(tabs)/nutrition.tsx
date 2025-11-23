@@ -1,6 +1,6 @@
 // app/(tabs)/nutrition.tsx
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlatList, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card } from 'react-native-paper';
 import { Button } from '../../components/Button';
@@ -17,7 +17,8 @@ interface FoodItem {
   calories: number;
   protein?: number;
   carbs?: number;
-  fat?: number;
+  fats?: number; // Changed from fat to fats to match backend
+  source?: 'USDA' | 'Gemini'; // Add this optional field
 }
 
 interface Meal {
@@ -36,7 +37,7 @@ interface ApiResponse<T> {
 
 const NutritionScreen: React.FC = () => {
   const router = useRouter();
-  const { user, isLoggedIn, signOut } = useAuth();
+  const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth(); // Destructure triggerDashboardRefresh
   const [meals, setMeals] = useState<Meal[]>([
     { id: '1', name: 'Breakfast', foods: [] },
     { id: '2', name: 'Lunch', foods: [] },
@@ -51,6 +52,23 @@ const NutritionScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+
+  // When user logs out, reset all relevant states
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setMeals([
+        { id: '1', name: 'Breakfast', foods: [] },
+        { id: '2', name: 'Lunch', foods: [] },
+        { id: '3', name: 'Dinner', foods: [] },
+        { id: '4', name: 'Snacks', foods: [] },
+      ]);
+      setSearchQuery('');
+      setSearchResults([]);
+      setSelectedMeal('');
+      setSearchError('');
+      setIsSearching(false);
+    }
+  }, [isLoggedIn]);
 
   // Removed static nutritionGoals object
 
@@ -87,7 +105,7 @@ const NutritionScreen: React.FC = () => {
           calories: mealAcc.calories + (food.calories || 0),
           protein: mealAcc.protein + (food.protein || 0),
           carbs: mealAcc.carbs + (food.carbs || 0),
-          fat: mealAcc.fat + (food.fat || 0),
+          fat: mealAcc.fat + (food.fats || 0),
         }),
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
       );
@@ -114,9 +132,9 @@ const NutritionScreen: React.FC = () => {
     
     try {
       console.log('Searching for:', searchQuery);
-      // apiClient.get already returns the parsed response.data
-      const response = await api.get<ApiResponse<FoodItem>>(`/meals/food/?search=${encodeURIComponent(searchQuery)}`);
-      console.log('Search response:', response);
+      // Now calling the backend proxy for USDA FoodData Central
+      const response = await api.get<ApiResponse<FoodItem>>(`/fooddata/search/?query=${encodeURIComponent(searchQuery)}`);
+      console.log('Search response from backend proxy:', response);
 
       // API client returns the data directly (axios response.data), so response is already { results: [...], count: ... }
       if (response && response.results && Array.isArray(response.results)) {
@@ -126,9 +144,9 @@ const NutritionScreen: React.FC = () => {
           calories: item.calories || 0,
           protein: item.protein || 0,
           carbs: item.carbs || 0,
-          fat: item.fats || 0 
+          fat: item.fat || 0 // Use 'fat' from backend response
         }));
-        
+      
         setSearchResults(foodItems);
         if (foodItems.length === 0) {
           setSearchError('No results found. Try a different search term.');
@@ -141,7 +159,7 @@ const NutritionScreen: React.FC = () => {
           calories: item.calories || 0,
           protein: item.protein || 0,
           carbs: item.carbs || 0,
-          fat: item.fats || 0
+          fat: item.fat || 0 // Use 'fat' from backend response
         }));
         setSearchResults(foodItems);
         if (foodItems.length === 0) {
@@ -186,14 +204,16 @@ const NutritionScreen: React.FC = () => {
         calories: food.calories || 0,
         protein: food.protein || 0,
         carbs: food.carbs || 0,
-        fats: food.fat || 0,
+        fats: food.fats || 0, // Ensure this is 'fats' from the FoodItem interface
         quantity: 1,
       };
 
       // If food has an ID (from database), use it, otherwise use custom_name only
-      if (food.id && !isNaN(parseInt(food.id))) {
-        logData.food_id = parseInt(food.id);
-      }
+      // Temporarily disabling food_id mapping from USDA API results
+      // as it likely doesn't match local FoodItem IDs.
+      // if (food.id && !isNaN(parseInt(food.id))) {
+      //   logData.food_id = parseInt(food.id);
+      // }
 
       const response = await api.post('/meals/logs/', logData);
       
@@ -212,6 +232,7 @@ const NutritionScreen: React.FC = () => {
       
       // Show success message
       alert('Food added successfully!');
+      triggerDashboardRefresh(); // Trigger dashboard refresh
     } catch (error: any) {
       console.error('Error adding food:', error);
       const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Failed to add food. Please try again.';
@@ -225,7 +246,7 @@ const NutritionScreen: React.FC = () => {
         calories: acc.calories + (food.calories || 0),
         protein: acc.protein + (food.protein || 0),
         carbs: acc.carbs + (food.carbs || 0),
-        fat: acc.fat + (food.fat || 0),
+        fat: acc.fat + (food.fats || 0),
       }),
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );

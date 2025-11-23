@@ -148,9 +148,13 @@ const refreshAuthToken = async (): Promise<boolean> => {
       await setSecureItem('authToken', (response.data as TokenResponse).access);
       return true;
     }
+    // If access token is not in response, something is wrong, clear all tokens
+    await removeSecureItem('authToken');
+    await removeSecureItem('refreshToken');
     return false;
   } catch (error) {
     console.error('Token refresh failed:', error);
+    // Explicitly remove both tokens on any refresh failure
     await removeSecureItem('authToken');
     await removeSecureItem('refreshToken');
     return false;
@@ -161,7 +165,8 @@ const refreshAuthToken = async (): Promise<boolean> => {
 const api = async <T = any>(
   method: 'get' | 'post' | 'put' | 'patch' | 'delete',
   endpoint: string,
-  data?: any
+  data?: any,
+  skipAuthRefresh: boolean = false // New parameter
 ): Promise<T> => {
   let token;
   try {
@@ -214,8 +219,8 @@ const api = async <T = any>(
       data: error.response?.data,
     });
     
-    // If unauthorized, try to refresh token
-    if (error.response?.status === 401 && method !== 'post') {
+    // If unauthorized and skipAuthRefresh is false, try to refresh token
+    if (error.response?.status === 401 && !skipAuthRefresh && method !== 'post') {
       const refreshed = await refreshAuthToken();
       if (refreshed) {
         // Retry the original request after refreshing
@@ -236,7 +241,7 @@ const api = async <T = any>(
           console.error('Retry after refresh failed:', retryError);
         }
       }
-      // If refresh failed, clear tokens
+      // If refresh failed or was not attempted, clear tokens
       await removeSecureItem('authToken');
       await removeSecureItem('refreshToken');
     }
@@ -246,11 +251,11 @@ const api = async <T = any>(
 };
 
 const apiClient = {
-  get: <T = any>(endpoint: string) => api<T>('get', endpoint),
-  post: <T = any>(endpoint: string, data?: any) => api<T>('post', endpoint, data),
-  put: <T = any>(endpoint: string, data?: any) => api<T>('put', endpoint, data),
-  patch: <T = any>(endpoint: string, data?: any) => api<T>('patch', endpoint, data),
-  delete: <T = any>(endpoint: string) => api<T>('delete', endpoint),
+  get: <T = any>(endpoint: string, skipAuthRefresh: boolean = false) => api<T>('get', endpoint, undefined, skipAuthRefresh),
+  post: <T = any>(endpoint: string, data?: any, skipAuthRefresh: boolean = false) => api<T>('post', endpoint, data, skipAuthRefresh),
+  put: <T = any>(endpoint: string, data?: any, skipAuthRefresh: boolean = false) => api<T>('put', endpoint, data, skipAuthRefresh),
+  patch: <T = any>(endpoint: string, data?: any, skipAuthRefresh: boolean = false) => api<T>('patch', endpoint, data, skipAuthRefresh),
+  delete: <T = any>(endpoint: string, skipAuthRefresh: boolean = false) => api<T>('delete', endpoint, undefined, skipAuthRefresh),
   // Helper methods for token management
   setAuthToken: async (token: string) => {
     await setSecureItem('authToken', token);

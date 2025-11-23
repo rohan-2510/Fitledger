@@ -106,7 +106,7 @@ const CardioExerciseList: React.FC<{
 
 export default function WorkoutScreen() {
   const router = useRouter();
-  const { user, isLoggedIn, signOut } = useAuth();
+  const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [workouts, setWorkouts] = useState<WorkoutLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -131,6 +131,29 @@ export default function WorkoutScreen() {
   const [calculatedCalories, setCalculatedCalories] = useState<number | null>(null);
   const [calculatingCalories, setCalculatingCalories] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for profile modal
+
+  // Reset states when user logs out
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setSelectedDate(new Date());
+      setWorkouts([]);
+      setAllWorkouts([]);
+      setExerciseName('');
+      setSets('');
+      setReps('');
+      setWeight('');
+      setDuration('');
+      setRpe('');
+      setNotes('');
+      setExerciseSuggestions([]);
+      setShowSuggestions(false);
+      setSelectedExercise(null);
+      setCalculatedCalories(null);
+      setCalculatingCalories(false);
+      setDailyCardioCalories(0);
+      setWeeklyCardioCalories(0);
+    }
+  }, [isLoggedIn]);
 
   // Handlers for ProfileModal actions
   const handleLogin = () => {
@@ -191,9 +214,9 @@ export default function WorkoutScreen() {
     } catch (error: any) {
       console.error('Error loading workouts:', error);
       // Don't show alert if it's just a 401 (not logged in)
-      if (error.response?.status !== 401) {
+      // if (error.response?.status !== 401) {
         Alert.alert('Error', 'Failed to load workouts. Please try again.');
-      }
+      // }
       setAllWorkouts([]);
     } finally {
       setLoading(false);
@@ -368,6 +391,7 @@ export default function WorkoutScreen() {
       resetForm();
       await loadAllWorkouts(); // Reload all workouts (will trigger filtered update)
       Alert.alert('Success', 'Workout logged successfully!');
+      triggerDashboardRefresh(); // Trigger dashboard refresh
     } catch (error: any) {
       console.error('Error saving workout:', error);
       Alert.alert(
@@ -507,37 +531,33 @@ export default function WorkoutScreen() {
           <TouchableOpacity onPress={() => openModal('cardiovascular')} style={styles.actionLink}>
             <Text style={styles.actionLinkText}>Add Exercise</Text>
           </TouchableOpacity>
-          <Text style={styles.actionSeparator}>|</Text>
-          <TouchableOpacity style={styles.actionLink}>
-            <Text style={styles.actionLinkText}>Quick Tools</Text>
-          </TouchableOpacity>
+          </View>
         </View>
-      </View>
-
+        
       {/* Totals Table */}
       <View style={styles.totalsTable}>
         <View style={styles.tableHeader}>
           <Text style={styles.tableHeaderText}>Minutes</Text>
           <Text style={styles.tableHeaderText}>Calories Burned</Text>
-        </View>
+          </View>
         <View style={styles.tableRow}>
           <Text style={styles.tableLabel}>Daily Total / Goal</Text>
           <Text style={styles.tableValue}>{dailyCardioMinutes} / 30</Text>
           <Text style={styles.tableValue}>{dailyCardioCalories} / 300</Text>
-        </View>
+          </View>
         <View style={styles.tableRow}>
           <Text style={styles.tableLabel}>Weekly Total / Goal</Text>
           <Text style={styles.tableValue}>{weeklyCardioMinutes} / 150</Text>
           <Text style={styles.tableValue}>{weeklyCardioCalories} / 1500</Text>
+          </View>
         </View>
-      </View>
-
+        
       {/* Logged Exercises */}
       {cardioWorkouts.length > 0 && (
         <View style={styles.loggedExercises}>
           <Text style={styles.loggedTitle}>Today's Exercises</Text>
           <CardioExerciseList workouts={cardioWorkouts} userWeight={user?.weight_kg || 70} onDelete={deleteWorkout} />
-        </View>
+          </View>
       )}
     </Card>
   );
@@ -550,13 +570,9 @@ export default function WorkoutScreen() {
           <TouchableOpacity onPress={() => openModal('strength')} style={styles.actionLink}>
             <Text style={styles.actionLinkText}>Add Exercise</Text>
           </TouchableOpacity>
-          <Text style={styles.actionSeparator}>|</Text>
-          <TouchableOpacity style={styles.actionLink}>
-            <Text style={styles.actionLinkText}>Quick Tools</Text>
-          </TouchableOpacity>
+          </View>
         </View>
-      </View>
-
+        
       {/* Table Header */}
       <View style={styles.strengthTableHeader}>
         <Text style={styles.strengthHeaderText}>Exercise</Text>
@@ -574,16 +590,16 @@ export default function WorkoutScreen() {
               <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
                 <MaterialIcons name="delete" size={18} color={Colors.error} />
               </TouchableOpacity>
-            </View>
+      </View>
             <Text style={styles.strengthValue}>{workout.sets || '-'}</Text>
             <Text style={styles.strengthValue}>{workout.reps || '-'}</Text>
             <Text style={styles.strengthValue}>{workout.weight ? `${workout.weight} kg` : '-'}</Text>
-          </View>
+      </View>
         ))
       ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No strength exercises logged today</Text>
-        </View>
+      </View>
       )}
     </Card>
   );
@@ -605,7 +621,7 @@ export default function WorkoutScreen() {
             <Text style={styles.title}>Workout Diary</Text>
             <Text style={styles.subtitle}>Track your daily activities</Text>
           </View>
-        </View>
+          </View>
 
         {/* Date Selector */}
         <Card style={styles.dateCard}>
@@ -624,7 +640,7 @@ export default function WorkoutScreen() {
                   <Text style={styles.todayButtonText}>Today</Text>
                 </TouchableOpacity>
               )}
-            </View>
+        </View>
           </View>
         </Card>
 
@@ -641,7 +657,7 @@ export default function WorkoutScreen() {
             <View style={styles.summaryItem}>
               <Text style={styles.summaryValue}>{workouts.length}</Text>
               <Text style={styles.summaryLabel}>Total Exercises</Text>
-            </View>
+        </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryValue}>{dailyCardioMinutes}</Text>
               <Text style={styles.summaryLabel}>Cardio Minutes</Text>
@@ -670,8 +686,8 @@ export default function WorkoutScreen() {
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
-            </View>
-
+        </View>
+        
             <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Exercise Name *</Text>
@@ -694,12 +710,12 @@ export default function WorkoutScreen() {
                   {searchingExercises && (
                     <ActivityIndicator size="small" color={Colors.primary} style={styles.searchIndicator} />
                   )}
-                </View>
-                
+        </View>
+        
                 {/* Exercise Suggestions */}
                 {showSuggestions && exerciseSuggestions.length > 0 && (
                   <View style={styles.suggestionsContainer}>
-                    <FlatList
+        <FlatList
                       data={exerciseSuggestions}
                       keyExtractor={(item, index) => `${item.name}-${index}`}
                       renderItem={({ item }) => (
@@ -747,8 +763,8 @@ export default function WorkoutScreen() {
                     )}
                   </View>
                 )}
-              </View>
-
+        </View>
+        
               {workoutType === 'cardiovascular' ? (
                 <>
                   <View style={styles.formGroup}>
@@ -768,7 +784,7 @@ export default function WorkoutScreen() {
                           Estimated calories: {calculatedCalories} cal
                           {user?.weight_kg && ` (based on ${user.weight_kg}kg weight)`}
                         </Text>
-                      </View>
+            </View>
                     )}
                     {calculatingCalories && (
                       <View style={styles.caloriesPreview}>
@@ -833,8 +849,8 @@ export default function WorkoutScreen() {
                   multiline
                   numberOfLines={3}
                 />
-              </View>
-            </ScrollView>
+        </View>
+      </ScrollView>
 
             <View style={styles.modalFooter}>
               <Button

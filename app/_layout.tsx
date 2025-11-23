@@ -19,8 +19,8 @@ function RootLayoutContent() {
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (!__DEV__) {
-        try {
+        if (!__DEV__) {
+          try {
           const { isAvailable } = await Updates.checkForUpdateAsync();
           if (isAvailable) {
             Alert.alert(
@@ -32,9 +32,9 @@ function RootLayoutContent() {
               ]
             );
           }
-        } catch (error) {
-          console.warn('Failed to check for updates:', error);
-        }
+          } catch (error) {
+            console.warn('Failed to check for updates:', error);
+          }
       }
     }, 1000);
     return () => clearTimeout(timer);
@@ -55,8 +55,8 @@ function RootLayoutContent() {
             <Stack.Screen name="profile-details" options={{ title: 'Profile Details' }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>
-        
-      </View>
+          
+        </View>
       <StatusBar style="auto" />
     </ThemeProvider>
   );
