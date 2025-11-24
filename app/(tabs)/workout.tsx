@@ -1,30 +1,31 @@
+import { db } from '@/utils/firebase';
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Modal,
-  FlatList,
-  Alert,
-  ActivityIndicator,
 } from 'react-native';
-import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { Colors } from '../../constants/Colors';
-import { ThemeTokens } from '../../constants/ThemeTokens';
-import apiClient from '../api/apiClient';
-import { calculateCaloriesBurned, searchExercises, getExerciseDetails } from '../api/workoutApi';
-import { useAuth } from '../../context/AuthContext';
+import { Card } from '../../components/Card';
 import { ProfileImageDisplay } from '../../components/ProfileImageDisplay'; // Import ProfileImageDisplay
 import { ProfileModal } from '../../components/ProfileModal'; // Import ProfileModal
-import { useRouter } from 'expo-router';
+import { Colors } from '../../constants/Colors';
+import { ThemeTokens } from '../../constants/ThemeTokens';
+import { useAuth } from '../../context/AuthContext';
+import { calculateCaloriesBurned, searchExercises } from '../api/workoutApi';
 
 interface WorkoutLog {
-  id: number;
+  id: string;
   exercise: string;
   sets?: number;
   reps?: string;
@@ -50,7 +51,7 @@ type WorkoutType = 'cardiovascular' | 'strength';
 const CardioExerciseItem: React.FC<{
   workout: WorkoutLog;
   userWeight: number;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }> = ({ workout, userWeight, onDelete }) => {
   const [calories, setCalories] = useState<number | null>(null);
 
@@ -88,7 +89,7 @@ const CardioExerciseItem: React.FC<{
 const CardioExerciseList: React.FC<{
   workouts: WorkoutLog[];
   userWeight: number;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }> = ({ workouts, userWeight, onDelete }) => {
   return (
     <>
@@ -182,10 +183,14 @@ export default function WorkoutScreen() {
     router.push('/complete-profile' as never);
   };
 
-  // Load all workouts on mount and when date changes
+  // Load all workouts on mount and when user changes
   useEffect(() => {
-    loadAllWorkouts();
-  }, []);
+    if (user?.id && isLoggedIn) {
+      loadAllWorkouts();
+    } else {
+      setAllWorkouts([]);
+    }
+  }, [user?.id, isLoggedIn]);
 
   // Filter workouts for selected date whenever date or allWorkouts changes
   useEffect(() => {
@@ -198,25 +203,28 @@ export default function WorkoutScreen() {
   }, [selectedDate, allWorkouts]);
 
   const loadAllWorkouts = async () => {
+    if (!user?.id) return;
+    
     setLoading(true);
     try {
-      const response = await apiClient.get<any>(`/workouts/logs/`);
+      const workoutDocRef = doc(db, "workout", user.id);
+      const workoutDocSnap = await getDoc(workoutDocRef);
       
-      // Handle paginated response or direct array
-      let workouts: WorkoutLog[] = [];
-      if (Array.isArray(response)) {
-        workouts = response;
-      } else if (response && response.results && Array.isArray(response.results)) {
-        workouts = response.results;
+      if (workoutDocSnap.exists()) {
+        const data = workoutDocSnap.data();
+        const workoutsArray = Array.isArray(data.workouts) ? data.workouts : [];
+        // Map workouts array to include document ID for each workout
+        const workoutsData: WorkoutLog[] = workoutsArray.map((workout: any, index: number) => ({
+          id: workout.id || `${user.id}_${index}`,
+          ...workout,
+        }));
+        setAllWorkouts(workoutsData);
+      } else {
+        setAllWorkouts([]);
       }
-      
-      setAllWorkouts(workouts);
     } catch (error: any) {
       console.error('Error loading workouts:', error);
-      // Don't show alert if it's just a 401 (not logged in)
-      // if (error.response?.status !== 401) {
-        Alert.alert('Error', 'Failed to load workouts. Please try again.');
-      // }
+      Alert.alert('Error', 'Failed to load workouts. Please try again.');
       setAllWorkouts([]);
     } finally {
       setLoading(false);
@@ -346,6 +354,11 @@ export default function WorkoutScreen() {
   };
 
   const saveWorkout = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Please log in to save workouts.');
+      return;
+    }
+
     if (!exerciseName.trim()) {
       Alert.alert('Error', 'Please enter an exercise name.');
       return;
@@ -363,6 +376,7 @@ export default function WorkoutScreen() {
 
     try {
       const workoutData: any = {
+        id: `${user.id}_${Date.now()}`,
         exercise: exerciseName.trim(),
         timestamp: selectedDate.toISOString(),
       };
@@ -375,8 +389,7 @@ export default function WorkoutScreen() {
         // Calculate calories using API
         const userWeight = user?.weight_kg || 70;
         const calories = await calculateCaloriesBurned(exerciseName.trim(), parseFloat(duration), userWeight);
-        // Note: Store calories in notes or extend backend model to include this field
-        // For now, we'll calculate it on the fly when displaying
+        workoutData.calculated_calories = calories;
       } else {
         workoutData.sets = parseInt(sets) || 1;
         workoutData.reps = reps.trim();
@@ -386,7 +399,25 @@ export default function WorkoutScreen() {
       if (rpe) workoutData.rpe = parseFloat(rpe);
       if (notes) workoutData.notes = notes.trim();
 
-      await apiClient.post('/workouts/logs/', workoutData);
+      // Use document ID that matches user.id
+      const workoutDocRef = doc(db, "workout", user.id);
+      const workoutDocSnap = await getDoc(workoutDocRef);
+
+      if (workoutDocSnap.exists()) {
+        // If the document exists, update it by adding the new workout
+        const prevData = workoutDocSnap.data();
+        // Ensure prevData.workouts is an array
+        const updatedWorkouts = Array.isArray(prevData.workouts)
+          ? [...prevData.workouts, workoutData]
+          : [workoutData];
+        await updateDoc(workoutDocRef, { workouts: updatedWorkouts });
+      } else {
+        // If not exists, create a new doc with workouts as an array
+        await setDoc(workoutDocRef, {
+          workouts: [workoutData],
+        });
+      }
+
       setModalVisible(false);
       resetForm();
       await loadAllWorkouts(); // Reload all workouts (will trigger filtered update)
@@ -396,12 +427,17 @@ export default function WorkoutScreen() {
       console.error('Error saving workout:', error);
       Alert.alert(
         'Error',
-        error.response?.data?.detail || 'Failed to save workout. Please try again.'
+        error.message || 'Failed to save workout. Please try again.'
       );
     }
   };
 
-  const deleteWorkout = async (id: number) => {
+  const deleteWorkout = async (id: string) => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Please log in to delete workouts.');
+      return;
+    }
+
     Alert.alert(
       'Delete Workout',
       'Are you sure you want to delete this workout?',
@@ -412,9 +448,20 @@ export default function WorkoutScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await apiClient.delete(`/workouts/logs/${id}/`);
-              await loadAllWorkouts(); // Reload all workouts (will trigger filtered update)
+              if (!user?.id) return;
+              const workoutDocRef = doc(db, "workout", user.id);
+              const workoutDocSnap = await getDoc(workoutDocRef);
+
+              if (workoutDocSnap.exists()) {
+                const prevData = workoutDocSnap.data();
+                const workoutsArray = Array.isArray(prevData.workouts) ? prevData.workouts : [];
+                // Filter out the workout with the matching id
+                const updatedWorkouts = workoutsArray.filter((workout: any) => workout.id !== id);
+                await updateDoc(workoutDocRef, { workouts: updatedWorkouts });
+                await loadAllWorkouts(); // Reload all workouts (will trigger filtered update)
+              }
             } catch (error: any) {
+              console.error('Error deleting workout:', error);
               Alert.alert('Error', 'Failed to delete workout.');
             }
           },
@@ -736,7 +783,6 @@ export default function WorkoutScreen() {
                           <MaterialIcons name="chevron-right" size={20} color={Colors.gray} />
                         </TouchableOpacity>
                       )}
-                      nestedScrollEnabled={true}
                       keyboardShouldPersistTaps="handled"
                     />
                   </View>
