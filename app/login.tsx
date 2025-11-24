@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
     padding: ThemeTokens.spacing.md,
     marginBottom: ThemeTokens.spacing.md,
     backgroundColor: '#fff',
+    color: "black",
   },
   error: {
     color: Colors.error,

@@ -1,10 +1,10 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Modal, TouchableOpacity } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Colors } from '../constants/Colors';
-import { useRouter } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
 import { ThemeTokens } from '../constants/ThemeTokens';
+import { useAuth } from '../context/AuthContext';
 
 export default function CompleteProfileScreen() {
   const router = useRouter();
@@ -193,6 +193,7 @@ const styles = StyleSheet.create({
     marginBottom: ThemeTokens.spacing.md,
     backgroundColor: Colors.card,
     fontSize: 16,
+    color: "black",
   },
   select: {
     borderWidth: 1,
@@ -201,13 +202,14 @@ const styles = StyleSheet.create({
     padding: ThemeTokens.spacing.md,
     marginBottom: ThemeTokens.spacing.md,
     backgroundColor: Colors.card,
+    color: "black",
   },
   selectText: {
     fontSize: 16,
-    color: Colors.text,
+    color: "black",
   },
   placeholderText: {
-    color: Colors.gray,
+    color: "black",
   },
   saveButton: {
     marginTop: ThemeTokens.spacing.md,

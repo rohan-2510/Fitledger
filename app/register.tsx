@@ -140,10 +140,11 @@ const styles = StyleSheet.create({
     padding: ThemeTokens.spacing.md,
     marginBottom: ThemeTokens.spacing.md,
     backgroundColor: '#fff',
+    color: "black",
   },
   error: {
-    color: Colors.error,
     marginBottom: ThemeTokens.spacing.md,
+    color: "black",
   },
   primaryButton: {
     marginTop: ThemeTokens.spacing.sm,
@@ -153,11 +154,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryText: {
-    color: Colors.gray,
     fontSize: 14,
+    color: "black",
   },
   linkText: {
-    color: Colors.primary,
     fontWeight: '600',
+    color: "black",
   },
 });
