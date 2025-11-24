@@ -21,7 +21,6 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { Colors } from '../../constants/Colors';
 import { ThemeTokens } from '../../constants/ThemeTokens';
 import { useAuth } from '../../context/AuthContext';
-import apiClient from '../api/apiClient';
 
 interface ExpenseData {
   id: string;
@@ -60,6 +59,7 @@ export default function ExpenseScreen() {
   const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [editBudgetModalVisible, setEditBudgetModalVisible] = useState(false);
   const [newBudget, setNewBudget] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Load monthly budget from user data
   useEffect(() => {
@@ -71,6 +71,7 @@ export default function ExpenseScreen() {
   // Reset states when user logs out
   useEffect(() => {
     if (!isLoggedIn) {
+      setSelectedDate(new Date());
       setSelectedCategoryFilter('all');
       setExpenses([]);
       setDescription('');
@@ -98,7 +99,30 @@ export default function ExpenseScreen() {
     } else {
       setExpenses([]);
     }
-  }, [user?.id, isLoggedIn]);
+  }, [user?.id, isLoggedIn, selectedDate]);
+
+  const isSameDay = (date1: Date, date2: Date): boolean => {
+    return (
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear()
+    );
+  };
+
+  const formatDisplayDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const changeDate = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
 
   const loadExpenses = async () => {
     if (!user?.id) return;
@@ -112,8 +136,16 @@ export default function ExpenseScreen() {
         const data = expenseDocSnap.data();
         setMonthlyBudget(data.monthly_budget || 0);
         const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+        
+        // Filter expenses for selected date
+        const selectedDateStr = selectedDate.toISOString().split('T')[0];
+        const filteredExpenses = expensesArray.filter((expense: any) => {
+          if (!expense.date) return false;
+          return expense.date === selectedDateStr;
+        });
+        
         // Map expenses array to include document ID for each expense
-        const expensesData: ExpenseData[] = expensesArray.map((expense: any, index: number) => ({
+        const expensesData: ExpenseData[] = filteredExpenses.map((expense: any, index: number) => ({
           id: expense.id || `${user.id}_${index}`,
           ...expense,
         }));
@@ -354,6 +386,27 @@ export default function ExpenseScreen() {
                   }
                 ]} 
               />
+            </View>
+          </View>
+        </Card>
+
+        {/* Date Selector */}
+        <Card style={styles.dateCard}>
+          <View style={styles.dateSelector}>
+            <Text style={styles.dateLabel}>Your Expense Diary for:</Text>
+            <View style={styles.dateControls}>
+              <TouchableOpacity onPress={() => changeDate(-1)} style={styles.dateButton}>
+                <MaterialIcons name="chevron-left" size={24} color={Colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.dateText}>{formatDisplayDate(selectedDate)}</Text>
+              <TouchableOpacity onPress={() => changeDate(1)} style={styles.dateButton}>
+                <MaterialIcons name="chevron-right" size={24} color={Colors.primary} />
+              </TouchableOpacity>
+              {/* {!isSameDay(selectedDate, new Date()) && (
+                <TouchableOpacity onPress={() => setSelectedDate(new Date())} style={styles.todayButton}>
+                  <Text style={styles.todayButtonText}>Today</Text>
+                </TouchableOpacity>
+              )} */}
             </View>
           </View>
         </Card>
@@ -970,5 +1023,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  dateCard: {
+    margin: ThemeTokens.spacing.lg,
+    marginTop: ThemeTokens.spacing.sm,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  dateLabel: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '500',
+    marginBottom: ThemeTokens.spacing.sm,
+  },
+  dateControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: ThemeTokens.spacing.sm,
+  },
+  dateButton: {
+    padding: ThemeTokens.spacing.xs,
+  },
+  dateText: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
+    minWidth: 200,
+  },
+  todayButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: ThemeTokens.spacing.md,
+    paddingVertical: ThemeTokens.spacing.xs,
+    borderRadius: ThemeTokens.radius.md,
+    marginLeft: ThemeTokens.spacing.sm,
+  },
+  todayButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -622,7 +622,7 @@ export default function WorkoutScreen() {
         <Text style={styles.strengthHeaderText}>Sets</Text>
         <Text style={styles.strengthHeaderText}>Reps/Set</Text>
         <Text style={styles.strengthHeaderText}>Weight/Set</Text>
-        <Text style={styles.strengthHeaderText}></Text>
+        {/* <Text style={styles.strengthHeaderText}></Text> */}
       </View>
 
       {/* Logged Exercises */}
@@ -630,18 +630,19 @@ export default function WorkoutScreen() {
         strengthWorkouts.map((workout) => (
           <View style={{display:'flex', flexDirection:'row', alignItems:'center', justifyContent:'space-between', width:'100%'}}>
           <View key={workout.id} style={styles.strengthRow}>
-            <View style={styles.strengthExerciseInfo}>
-              <Text style={styles.strengthExerciseName}>{workout.exercise}</Text>
-            </View>
-            <View style={{display:'flex', flexDirection:'row'}}>
+          <View style={{display:'flex', flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom: ThemeTokens.spacing.sm}}>
             <Text style={styles.strengthValue}>{workout.sets || '-'}</Text>
             <Text style={styles.strengthValue}>{workout.reps || '-'}</Text>
             <Text style={styles.strengthValue}>{workout.weight ? `${workout.weight} kg` : '-'}</Text>
             </View>
-          </View>
-          <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
+            <View style={styles.strengthExerciseInfo}>
+              <Text style={styles.strengthExerciseName}>{workout.exercise.substring(0, 35)}...</Text>
+              <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
                 <MaterialIcons name="delete" size={18} color={Colors.error} />
               </TouchableOpacity>
+            </View>
+            
+          </View>
           </View>
         ))
       ) : (
@@ -870,7 +871,7 @@ export default function WorkoutScreen() {
                 </>
               )}
 
-              <View style={styles.formGroup}>
+              {/* <View style={styles.formGroup}>
                 <Text style={styles.label}>RPE (Rate of Perceived Exertion 1-10)</Text>
                 <TextInput
                   style={styles.input}
@@ -879,7 +880,7 @@ export default function WorkoutScreen() {
                   keyboardType="numeric"
                   placeholder="7"
                 />
-              </View>
+              </View> */}
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Notes</Text>
@@ -1131,6 +1132,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    width: '100%',
   },
   strengthExerciseName: {
     // flex: 1,

@@ -51,10 +51,11 @@ const NutritionScreen: React.FC = () => {
   const [searchError, setSearchError] = useState('');
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
   const [selectedSection, setSelectedSection] = useState<MealSection>('Breakfast');
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const MEAL_SECTIONS: MealSection[] = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
-  // Load meals from Firebase on mount and when user changes
+  // Load meals from Firebase on mount and when user/date changes
   useEffect(() => {
     if (user?.id && isLoggedIn) {
       loadMeals();
@@ -66,11 +67,12 @@ const NutritionScreen: React.FC = () => {
         { id: '4', name: 'Snacks', foods: [] },
       ]);
     }
-  }, [user?.id, isLoggedIn]);
+  }, [user?.id, isLoggedIn, selectedDate]);
 
   // When user logs out, reset all relevant states
   useEffect(() => {
     if (!isLoggedIn) {
+      setSelectedDate(new Date());
       setMeals([
         { id: '1', name: 'Breakfast', foods: [] },
         { id: '2', name: 'Lunch', foods: [] },
@@ -84,11 +86,34 @@ const NutritionScreen: React.FC = () => {
     }
   }, [isLoggedIn]);
 
+  const isSameDay = (date1: Date, date2: Date): boolean => {
+    return (
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear()
+    );
+  };
+
+  const formatDisplayDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const changeDate = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
+  };
+
   const loadMeals = async () => {
     if (!user?.id) return;
     
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const selectedDateStr = selectedDate.toISOString().split('T')[0];
       const nutritionDocRef = doc(db, "nutrition", user.id);
       const nutritionDocSnap = await getDoc(nutritionDocRef);
       
@@ -96,10 +121,10 @@ const NutritionScreen: React.FC = () => {
         const data = nutritionDocSnap.data();
         const mealsArray = Array.isArray(data.meals) ? data.meals : [];
         
-        // Filter meals for today
-        const todayMeals = mealsArray.filter((meal: any) => {
+        // Filter meals for selected date
+        const selectedDateMeals = mealsArray.filter((meal: any) => {
           if (!meal.date) return false;
-          return meal.date === today;
+          return meal.date === selectedDateStr;
         });
         
         // Initialize meal structure with today's foods
@@ -110,8 +135,8 @@ const NutritionScreen: React.FC = () => {
           { id: '4', name: 'Snacks', foods: [] },
         ];
         
-        // Populate meals with today's foods
-        todayMeals.forEach((meal: any) => {
+        // Populate meals with selected date's foods
+        selectedDateMeals.forEach((meal: any) => {
           const mealIndex = mealStructure.findIndex(m => m.name === meal.meal_name);
           if (mealIndex !== -1 && meal.food) {
             const foodItem: FoodItem = {
@@ -411,7 +436,7 @@ const NutritionScreen: React.FC = () => {
 
         <Card style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
-            <Text style={styles.summaryTitle}>Today&apos;s Intake</Text>
+            <Text style={styles.summaryTitle}>Daily Intake</Text>
             
           </View>
           
@@ -444,9 +469,29 @@ const NutritionScreen: React.FC = () => {
           </View>
         </Card>
 
+        {/* Date Selector */}
+        <Card style={styles.dateCard}>
+          <View style={styles.dateSelector}>
+            <Text style={styles.dateLabel}>Your Nutrition Diary for:</Text>
+            <View style={styles.dateControls}>
+              <TouchableOpacity onPress={() => changeDate(-1)} style={styles.dateButton}>
+                <MaterialIcons name="chevron-left" size={24} color={Colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.dateText}>{formatDisplayDate(selectedDate)}</Text>
+              <TouchableOpacity onPress={() => changeDate(1)} style={styles.dateButton}>
+                <MaterialIcons name="chevron-right" size={24} color={Colors.primary} />
+              </TouchableOpacity>
+              {/* {!isSameDay(selectedDate, new Date()) && (
+                <TouchableOpacity onPress={() => setSelectedDate(new Date())} style={styles.todayButton}>
+                  <Text style={styles.todayButtonText}>Today</Text>
+                </TouchableOpacity>
+              )} */}
+            </View>
+          </View>
+        </Card>
+
         <View style={styles.mealListHeader}>
-          <Text style={styles.sectionTitle}>Today&apos;s Meals</Text>
-          <Text style={styles.seeAllText}>See All</Text>
+          <Text style={styles.sectionTitle}>Meals</Text>
         </View>
         
         <View style={styles.mealList}>
@@ -841,6 +886,48 @@ const styles = StyleSheet.create({
   },
   selectedSectionButton: {
     backgroundColor: Colors.primary,
+  },
+  dateCard: {
+    margin: 20,
+    marginTop: 10,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  dateLabel: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  dateControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateButton: {
+    padding: 8,
+  },
+  dateText: {
+    fontSize: 14,
+    color: Colors.text,
+    fontWeight: '500',
+    minWidth: 200,
+  },
+  todayButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  todayButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 
