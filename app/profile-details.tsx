@@ -41,10 +41,10 @@ export default function ProfileDetailsScreen() {
       <View style={styles.divider} />
 
       <Text style={styles.title}>Recommended Daily Intake</Text>
-      <Text style={styles.label}>Calories: <Text style={styles.value}>{user?.macros?.calories || '—'} kcal</Text></Text>
-      <Text style={styles.label}>Protein: <Text style={styles.value}>{user?.macros?.protein || '—'} g</Text></Text>
-      <Text style={styles.label}>Carbs: <Text style={styles.value}>{user?.macros?.carbs || '—'} g</Text></Text>
-      <Text style={styles.label}>Fat: <Text style={styles.value}>{user?.macros?.fat || '—'} g</Text></Text>
+      <Text style={styles.label}>Calories: <Text style={styles.value}>{user?.macros?.calories ?? '—'} kcal</Text></Text>
+      <Text style={styles.label}>Protein: <Text style={styles.value}>{user?.macros?.protein ?? '—'} g</Text></Text>
+      <Text style={styles.label}>Carbs: <Text style={styles.value}>{user?.macros?.carbs ?? '—'} g</Text></Text>
+      <Text style={styles.label}>Fat: <Text style={styles.value}>{user?.macros?.fat ?? '—'} g</Text></Text>
       <Button title="Edit Profile" onPress={handleEditProfile} style={styles.logoutButton} />
       <Button title="Logout" onPress={handleLogout} style={styles.logoutButton} />
     </View>

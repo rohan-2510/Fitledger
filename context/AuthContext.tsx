@@ -1,9 +1,18 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import apiClient from '../app/api/apiClient';
 import * as SecureStore from 'expo-secure-store';
+import { auth, db } from '../utils/firebase'; // Import Firebase auth and db
+import { 
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { calcMacros } from '@/hooks/use-calc-macros';
 
 export type User = {
-  id?: number;
+  id?: string; // Change to string for Firebase UID
   email: string;
   username?: string;
   full_name?: string;
@@ -16,8 +25,8 @@ export type User = {
   activity_level?: string;
   profile_image_url?: string;
   gender?: string;
-  macros?: { calories: number; protein: number; carbs: number; fat: number; }; // Add this line
-  monthly_budget?: number; // Add this line
+  macros?: { calories: number; protein: number; carbs: number; fat: number; };
+  monthly_budget?: number;
 };
 
 export type ProfileDetails = {
@@ -35,13 +44,13 @@ type AuthContextValue = {
   profile: ProfileDetails | null;
   isLoggedIn: boolean;
   isLoading: boolean;
-  signIn: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, name: string, username?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   saveProfile: (details: ProfileDetails) => Promise<{ success: boolean; error?: string }>;
   refreshUser: () => Promise<void>;
-  dashboardRefreshKey: number; // Add this line
-  triggerDashboardRefresh: () => void; // Add this line
+  dashboardRefreshKey: number;
+  triggerDashboardRefresh: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -50,240 +59,164 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0); // Add this line
-  const [initialLoad, setInitialLoad] = useState(true); // New state to track initial load
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
 
-  // Load user from token on mount
   useEffect(() => {
-    loadUserFromToken();
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        console.log('[AuthContext] Firebase user logged in:', firebaseUser.uid);
+        // Fetch user data from Firestore
+        await loadUserProfile(firebaseUser.uid);
+      } else {
+        console.log('[AuthContext] No Firebase user logged in.');
+        setUser(null);
+        setProfile(null);
+        await apiClient.clearTokens(); // Clear any stale tokens
+      }
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const loadUserFromToken = async () => {
+  const loadUserProfile = async (uid: string) => {
     try {
-      // Ensure API_BASE is initialized before any API calls
-      await apiClient.ensureApiBaseInitialized();
-      console.log('[AuthContext] API Base ensured. Attempting to load tokens...');
-      const token = await apiClient.getAuthToken(); // Use apiClient's helper
-      if (token) {
-        console.log('[AuthContext] Auth token found. Refreshing user...');
-        await refreshUser();
+      const userDocRef = doc(db, "users", uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const isProfileComplete = !!(userData.height_cm && userData.weight_kg && userData.age && userData.gender);
+        console.log("---------------------------------",userData)
+        //check if macros are calculated or else calc and store in db
+        let macros;
+        if(!userData.macros){
+          macros = calcMacros(userData)
+          console.log("macros---------------------------------",macros)
+          await updateDoc(userDocRef, { macros });
+        }
+        setUser({
+          id: uid,
+          email: userData.email,
+          username: userData.username,
+          full_name: userData.full_name,
+          name: userData.full_name || userData.username,
+          profileCompleted: isProfileComplete,
+          height_cm: userData.height_cm,
+          weight_kg: userData.weight_kg,
+          age: userData.age,
+          goal: userData.goal,
+          activity_level: userData.activity_level,
+          profile_image_url: userData.profile_image_url,
+          gender: userData.gender,
+          // Ensure macros object has default values if null/undefined
+          macros: macros || { calories: 0, protein: 0, carbs: 0, fat: 0 }, 
+          monthly_budget: userData.monthly_budget, 
+        });
+        setProfile({
+          height: userData.height_cm?.toString(),
+          weight: userData.weight_kg?.toString(),
+          age: userData.age?.toString(),
+          activityLevel: userData.activity_level,
+          goal: userData.goal,
+          gender: userData.gender,
+        });
       } else {
-        console.log('[AuthContext] No auth token found.');
+        console.warn('User profile not found in Firestore for UID:', uid);
+        setUser(null);
+        setProfile(null);
       }
     } catch (error) {
-      console.error('[AuthContext] Error loading user from token:', error);
-    } finally {
-      setInitialLoad(false); // Mark initial load complete
-      setIsLoading(false); // Set isLoading to false after initial attempt
+      console.error('Error loading user profile from Firestore:', error);
+      setUser(null);
+      setProfile(null);
     }
   };
 
   const refreshUser = async () => {
-    try {
-      // UserViewSet.list() returns a single user object (the current user)
-      const userData = await apiClient.get('/users/');
-      
-      if (userData && typeof userData === 'object') {
-        const user = userData as any;
-
-        // Determine profile completion status
-        const isProfileComplete = !!(user.height_cm && user.weight_kg && user.age && user.gender); // Add user.gender
-
-        console.log('Refresh User: User data from API:', userData);
-        setUser({
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          full_name: user.full_name,
-          name: user.full_name || user.username,
-          profileCompleted: isProfileComplete, // Use the determined status
-          height_cm: user.height_cm,
-          weight_kg: user.weight_kg,
-          age: user.age,
-          goal: user.goal,
-          activity_level: user.activity_level,
-          profile_image_url: user.profile_image_url,
-          gender: user.gender,
-          macros: user.macros, // Add this line to set macros
-          monthly_budget: user.monthly_budget, // Add this line
-        });
-        console.log('Refresh User: User state set to:', user);
-        if (user.height_cm || user.weight_kg || user.age) {
-          setProfile({
-            height: user.height_cm?.toString(),
-            weight: user.weight_kg?.toString(),
-            age: user.age?.toString(),
-            activityLevel: user.activity_level,
-            goal: user.goal,
-            gender: user.gender,
-          });
-        }
-      } else {
-        console.warn('Refresh User: userData is null or not an object:', userData);
-      }
-    } catch (error: any) {
-      console.error('Error refreshing user:', error.response?.data || error.message);
-      // If token is invalid, clear it
-      if (error.response?.status === 401) {
-        console.log('[AuthContext] 401 on refreshUser. Signing out...');
-        await signOut();
-      }
-    } finally {
-      // Only set isLoading to false if the initial load is complete
-      if (!initialLoad) {
-        setIsLoading(false);
-      }
+    const firebaseUser = auth.currentUser;
+    if (firebaseUser) {
+      await loadUserProfile(firebaseUser.uid);
+    } else {
+      setUser(null);
+      setProfile(null);
     }
   };
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Ensure API_BASE is initialized before sign-in attempt
-      await apiClient.ensureApiBaseInitialized();
-      console.log('[AuthContext] Signing in...');
-      const attemptLogin = async (identifier: string) => {
-        const response = await apiClient.post('/auth/token/', {
-          username: identifier,
-          password: password,
-        });
-        return response;
-      };
-
-      let response;
-      let loginIdentifier = email; // First attempt: use email as username
-
-      try {
-        response = await attemptLogin(loginIdentifier);
-      } catch (error: any) {
-        // If first attempt fails with 'No active account', try with username from email
-        const errorMessage = error.response?.data?.detail || '';
-        if (errorMessage.includes('No active account') || errorMessage.includes('credentials')) {
-          loginIdentifier = email.split('@')[0]; // Second attempt: use username from email
-          console.log('Sign in failed with email, retrying with username:', loginIdentifier);
-          response = await attemptLogin(loginIdentifier);
-        } else {
-          throw error; // Re-throw if it's a different error
-        }
-      }
-
-      // apiClient.post returns the data directly, not wrapped in .data
-      if (response && response.access && response.refresh) {
-        await apiClient.setAuthToken(response.access);
-        await apiClient.setRefreshToken(response.refresh);
-        await refreshUser();
-        console.log('Sign In: User state after refresh (success):', user);
-        return { success: true };
-      }
-      console.error('Invalid token response from server during sign in:', response);
-      return { success: false, error: 'Invalid response from server' };
+      setIsLoading(true);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      console.log('Firebase Sign In successful:', firebaseUser.uid);
+      await loadUserProfile(firebaseUser.uid);
+      return { success: true };
     } catch (error: any) {
-      console.error('Sign in error:', error.response?.data || error.message);
-      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Login failed. Please check your credentials.';
-      return { success: false, error: errorMessage };
+      console.error('Firebase Sign In error:', error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signUp = async (email: string, password: string, name: string, username?: string): Promise<{ success: boolean; error?: string }> => {
-    let createdUsername: string | undefined;
-    let userResponse: any; // Declare outside try block for catch access
-    
     try {
+      setIsLoading(true);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
       const generatedUsername = username || email.split('@')[0];
-      
-      // First create the user
-      userResponse = await apiClient.post('/users/register/', {
-        email,
-        password,
+
+      // Store additional user data in Firestore
+      await setDoc(doc(db, "users", firebaseUser.uid), {
         username: generatedUsername,
+        email: email,
         full_name: name,
+        age: null,
+        height_cm: null,
+        weight_kg: null,
+        bodyfat_percent: null,
+        goal: 'maintain',
+        activity_level: 'sedentary',
+        gender: null,
+        monthly_budget: 0.0,
       });
-
-      // Extract the actual username from the response (backend might modify it)
-      createdUsername = userResponse.username || generatedUsername;
-      
-      console.log('Registration successful, attempting login with username:', createdUsername);
-      console.log('User registration response:', userResponse);
-
-      // Then login to get tokens using the actual username
-      // Add a small delay to ensure user is fully created
-      await new Promise(resolve => setTimeout(resolve, 300)); // Increased delay
-      
-      const loginResponse = await apiClient.post<TokenResponse>('/auth/token/', {
-        username: createdUsername,  // Use the username from registration response
-        password: password,
-      });
-      
-      console.log('Login response received:', loginResponse);
-
-      // apiClient.post returns the data directly, not wrapped in .data
-      
-      if (loginResponse && loginResponse.access && loginResponse.refresh) {
-        console.log('Tokens received, storing...');
-        await apiClient.setAuthToken(loginResponse.access);
-        await apiClient.setRefreshToken(loginResponse.refresh);
-
-        // Fetch user profile
-        await refreshUser();
-        console.log('Sign Up: User state after refresh (success):', user);
-        return { success: true };
-      }
-      
-      console.error('Invalid token response structure:', loginResponse);
-      return { success: false, error: 'Registration successful but login failed - invalid token response structure' };
+      console.log('Firebase Sign Up successful and profile created:', firebaseUser.uid);
+      await loadUserProfile(firebaseUser.uid);
+      return { success: true };
     } catch (error: any) {
-      console.error('Sign up error:', error);
-      
-      // Handle registration error
-      if (error.response?.status === 400 && error.response?.data) {
-        const data = error.response.data;
-        const errorMessage = data.detail || data.message || data.email?.[0] || data.username?.[0] || 'Registration failed';
-        return { success: false, error: errorMessage };
-      }
-      
-      // Handle token login error
-      if (error.response?.status === 401) {
-        const errorDetail = error.response?.data?.detail || error.response?.data?.message || '';
-        console.error('Token login failed after registration:', {
-          status: 401,
-          detail: errorDetail,
-          attemptedUsername: createdUsername,
-        });
-        return { 
-          success: false, 
-          error: errorDetail || (createdUsername ? `Registration successful but login failed. Please try logging in manually with username: ${createdUsername}` : 'Registration successful but login failed. Please try logging in manually.')
-        };
-      }
-      
-      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Registration failed';
-      return { success: false, error: errorMessage };
+      console.error('Firebase Sign Up error:', error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const signOut = async () => {
     try {
-      console.log('AuthContext: Signing out and clearing tokens...');
-      console.trace('SignOut call stack:');
-      await apiClient.clearTokens();
-    setUser(null);
-    setProfile(null);
-      // Additional logic to clear other app-wide states can be added here if needed
+      console.log('AuthContext: Signing out from Firebase...');
+      await firebaseSignOut(auth);
+      setUser(null);
+      setProfile(null);
+      await apiClient.clearTokens(); // Clear any remaining local tokens
       console.log('AuthContext: User and profile state cleared.');
-      triggerDashboardRefresh(); // Trigger dashboard refresh on signOut
+      triggerDashboardRefresh();
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('Firebase Sign Out error:', error);
     }
   };
 
   const saveProfile = async (details: ProfileDetails): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Update user profile via API using /me/ endpoint
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        return { success: false, error: 'User not authenticated.' };
+      }
+
       const updateData: any = {};
       if (details.height) updateData.height_cm = parseFloat(details.height);
       if (details.weight) updateData.weight_kg = parseFloat(details.weight);
       if (details.age) updateData.age = parseInt(details.age);
       if (details.activityLevel) updateData.activity_level = details.activityLevel.toLowerCase();
       if (details.goal) {
-        // Map goal to backend format
         if (details.goal.toLowerCase().includes('lose') || details.goal.toLowerCase().includes('cut')) {
           updateData.goal = 'cut';
         } else if (details.goal.toLowerCase().includes('gain') || details.goal.toLowerCase().includes('bulk')) {
@@ -292,30 +225,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updateData.goal = 'maintain';
         }
       }
-      if (details.gender) updateData.gender = details.gender; // Add this line
+      if (details.gender) updateData.gender = details.gender;
 
-      // Use the /me/ custom action endpoint which always updates the current user
-      await apiClient.patch('/users/me/', updateData);
-      
-      // Update local state
-    setProfile(details);
-      await refreshUser();
-      console.log('Save Profile: User state after refresh (success):', user);
+      // Update Firestore document directly
+      const userDocRef = doc(db, "users", firebaseUser.uid);
+      await updateDoc(userDocRef, updateData);
+
+      await refreshUser(); // Refresh local user state from Firestore
+      console.log('Save Profile: User profile updated in Firestore and state refreshed.');
       return { success: true };
     } catch (error: any) {
-      console.error('Save profile error:', error);
-      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Failed to save profile';
-      return { success: false, error: errorMessage };
+      console.error('Save profile error:', error.message);
+      return { success: false, error: error.message };
     }
   };
 
   const triggerDashboardRefresh = () => {
     setDashboardRefreshKey(prev => prev + 1);
-  }; // Add this function
+  };
 
   const value = useMemo(
-    () => ({ user, profile, isLoggedIn: !!user, isLoading: isLoading || initialLoad, signIn, signUp, signOut, saveProfile, refreshUser, dashboardRefreshKey, triggerDashboardRefresh }), // Update isLoading to consider initialLoad
-    [user, profile, isLoading, dashboardRefreshKey, initialLoad] // Update dependencies
+    () => ({ user, profile, isLoggedIn: !!user, isLoading, signIn, signUp, signOut, saveProfile, refreshUser, dashboardRefreshKey, triggerDashboardRefresh }),
+    [user, profile, isLoading, dashboardRefreshKey]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
