@@ -1,25 +1,25 @@
+import { db } from '@/utils/firebase';
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { doc, getDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
+  Dimensions,
+  Image,
   ScrollView,
   StyleSheet,
-  Dimensions,
+  Text,
   TouchableOpacity,
-  Image
+  View
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Colors } from '../../constants/Colors';
-import { ThemeTokens } from '../../constants/ThemeTokens';
-import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import apiClient from '../api/apiClient';
-import { useAuth } from '../../context/AuthContext';
+import { Card } from '../../components/Card';
 import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
 import { ProfileModal } from '../../components/ProfileModal';
-import { doc, getDoc, where, query, collection, getDocs } from 'firebase/firestore';
-import { db } from '@/utils/firebase';
+import { Colors } from '../../constants/Colors';
+import { ThemeTokens } from '../../constants/ThemeTokens';
+import { useAuth } from '../../context/AuthContext';
+import apiClient from '../api/apiClient';
 
 interface MealLog {
   id: number;
@@ -37,7 +37,7 @@ interface ExpenseItem {
 }
 
 interface WorkoutLog {
-  id: number;
+  id: string;
   exercise: string;
   sets?: number;
   reps?: string;
@@ -140,13 +140,43 @@ export default function DashboardScreen() {
       } else {
         setDailyExpenses(0);
       }
-      // Fetch latest workout
+      // Fetch latest workout from Firebase
       try {
-        const workoutLogs = await apiClient.get<WorkoutLog[]>(`/workouts/logs/?date=${today}`);
-        if (workoutLogs.length > 0) {
-          // Assuming logs are returned in reverse chronological order or sort if not
-          const sortedWorkouts = [...workoutLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          setLatestWorkout(sortedWorkouts[0]);
+        if (!user?.id) {
+          setLatestWorkout(null);
+          return;
+        }
+        
+        const workoutDocRef = doc(db, "workout", user.id);
+        const workoutDocSnap = await getDoc(workoutDocRef);
+        
+        if (workoutDocSnap.exists()) {
+          const data = workoutDocSnap.data();
+          const workoutsArray = Array.isArray(data.workouts) ? data.workouts : [];
+          
+          // Filter workouts for today
+          const todayWorkouts = workoutsArray.filter((workout: any) => {
+            if (!workout.timestamp) return false;
+            const workoutDate = new Date(workout.timestamp);
+            const todayDate = new Date();
+            return (
+              workoutDate.getDate() === todayDate.getDate() &&
+              workoutDate.getMonth() === todayDate.getMonth() &&
+              workoutDate.getFullYear() === todayDate.getFullYear()
+            );
+          });
+          
+          if (todayWorkouts.length > 0) {
+            // Sort by timestamp (most recent first)
+            const sortedWorkouts = [...todayWorkouts].sort((a, b) => 
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
+            setLatestWorkout(sortedWorkouts[0]);
+          } else {
+            setLatestWorkout(null);
+          }
+        } else {
+          setLatestWorkout(null);
         }
       } catch (error) {
         console.error('Error fetching latest workout:', error);
@@ -243,20 +273,41 @@ export default function DashboardScreen() {
             style={{ padding: 0 }}
           />
         </View>
-        <View style={styles.workoutStats}>
-          <View style={styles.workoutStat}>
-            <Text style={styles.workoutStatValue}>{latestWorkout?.sets || '-'}</Text>
-            <Text style={styles.workoutStatLabel}>Sets</Text>
+        {latestWorkout ? (
+          latestWorkout.duration_min ? (
+            // Cardio workout display
+            <View style={styles.workoutStats}>
+              <View style={styles.workoutStat}>
+                <Text style={styles.workoutStatValue}>{latestWorkout.duration_min}</Text>
+                <Text style={styles.workoutStatLabel}>Minutes</Text>
+              </View>
+              <View style={styles.workoutStat}>
+                <Text style={styles.workoutStatValue}>Cardio</Text>
+                <Text style={styles.workoutStatLabel}>Type</Text>
+              </View>
+            </View>
+          ) : (
+            // Strength workout display
+            <View style={styles.workoutStats}>
+              <View style={styles.workoutStat}>
+                <Text style={styles.workoutStatValue}>{latestWorkout?.sets || '-'}</Text>
+                <Text style={styles.workoutStatLabel}>Sets</Text>
+              </View>
+              <View style={styles.workoutStat}>
+                <Text style={styles.workoutStatValue}>{latestWorkout?.reps || '-'}</Text>
+                <Text style={styles.workoutStatLabel}>Reps</Text>
+              </View>
+              <View style={styles.workoutStat}>
+                <Text style={styles.workoutStatValue}>{latestWorkout?.weight ? `${latestWorkout.weight}kg` : '-'}</Text>
+                <Text style={styles.workoutStatLabel}>Weight</Text>
+              </View>
+            </View>
+          )
+        ) : (
+          <View style={styles.workoutStats}>
+            <Text style={styles.emptyWorkoutText}>Start logging your workouts to see them here!</Text>
           </View>
-          <View style={styles.workoutStat}>
-            <Text style={styles.workoutStatValue}>{latestWorkout?.reps || '-'}</Text>
-            <Text style={styles.workoutStatLabel}>Reps</Text>
-          </View>
-          <View style={styles.workoutStat}>
-            <Text style={styles.workoutStatValue}>{latestWorkout?.weight ? `${latestWorkout.weight}kg` : '-'}</Text>
-            <Text style={styles.workoutStatLabel}>Weight</Text>
-          </View>
-        </View>
+        )}
       </Card>
 
       {/* Gym Images Carousel */}
@@ -418,6 +469,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.gray,
     marginTop: 4,
+  },
+  emptyWorkoutText: {
+    fontSize: 14,
+    color: Colors.gray,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    padding: ThemeTokens.spacing.md,
   },
   chartPlaceholder: {
     height: 200,
