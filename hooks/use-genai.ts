@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { useCallback, useState } from 'react';
+import appJson from '../app.json';
 
 export interface NutritionData {
   calories: number;
@@ -17,7 +18,7 @@ interface UseGenAIResult {
 }
 
 const genAI = new GoogleGenAI({
-  apiKey: "",
+  apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
 });
 
 export const useGenAI = (): UseGenAIResult => {

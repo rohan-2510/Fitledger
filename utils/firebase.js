@@ -19,7 +19,3 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-// If you're using Analytics, you might also need:
-// import { getAnalytics } from "firebase/analytics";
-// export const analytics = getAnalytics(app);

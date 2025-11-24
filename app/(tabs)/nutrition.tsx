@@ -31,6 +31,7 @@ interface Meal {
   date?: string; // ISO date string for filtering
 }
 
+type MealSection = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks';
 
 const NutritionScreen: React.FC = () => {
   const router = useRouter();
@@ -49,6 +50,9 @@ const NutritionScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  const [selectedSection, setSelectedSection] = useState<MealSection>('Breakfast');
+
+  const MEAL_SECTIONS: MealSection[] = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
   // Load meals from Firebase on mount and when user changes
   useEffect(() => {
@@ -249,15 +253,14 @@ const NutritionScreen: React.FC = () => {
       const now = new Date();
       const currentHour = now.getHours();
       
-      // Determine meal based on time of day
-      let mealName = 'Snacks';
-      if (currentHour >= 5 && currentHour < 11) {
-        mealName = 'Breakfast';
-      } else if (currentHour >= 11 && currentHour < 16) {
-        mealName = 'Lunch';
-      } else if (currentHour >= 16 && currentHour < 21) {
-        mealName = 'Dinner';
-      }
+      let mealName = selectedSection;
+      // if (currentHour >= 5 && currentHour < 11) {
+      //   mealName = 'Breakfast';
+      // } else if (currentHour >= 11 && currentHour < 16) {
+      //   mealName = 'Lunch';
+      // } else if (currentHour >= 16 && currentHour < 21) {
+      //   mealName = 'Dinner';
+      // }
 
       const mealLogData = {
         id: `${user.id}_${Date.now()}`,
@@ -473,19 +476,30 @@ const NutritionScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <Card style={styles.modalCard}>
-            <Card.Title title="Add Food with AI" />
+            <Card.Title title="Add Food" />
             <Card.Content>
+              <View style={styles.sectionButtonsContainer}>
+                {MEAL_SECTIONS.map((section) => (
+                  <Button
+                    key={section}
+                    title={section}
+                    onPress={() => setSelectedSection(section)}
+                    variant={selectedSection === section ? 'primary' : 'outline'}
+                    style={styles.sectionButton}
+                  />
+                ))}
+              </View>
               <View style={styles.searchContainer}>
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Enter food item (e.g., 100g of paneer, 2 eggs, 1 cup rice)"
+                  placeholder="Enter food item (e.g.1 cup rice)"
                   value={searchQuery}
                   onChangeText={setSearchQuery}
                   onSubmitEditing={searchFoods}
                   placeholderTextColor={Colors.gray}
                 />
                 <Button
-                  title={isSearching || isGenAILoading ? 'Generating...' : 'Generate'}
+                  title={isSearching || isGenAILoading ? 'Adding...' : 'Add Food'}
                   onPress={searchFoods}
                   variant="primary"
                   style={styles.searchButton}
@@ -812,6 +826,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
     fontStyle: 'italic',
+  },
+  sectionButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+    marginTop: 10,
+  },
+  sectionButton: {
+    width: '48%', // Roughly half minus margin
+    marginVertical: 5,
+    marginHorizontal: '1%',
+  },
+  selectedSectionButton: {
+    backgroundColor: Colors.primary,
   },
 });
 

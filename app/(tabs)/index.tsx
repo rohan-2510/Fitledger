@@ -459,6 +459,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   sectionTitle: {
+    width: '80%',
     fontSize: 18,
     fontWeight: '600',
     color: Colors.text,
@@ -537,7 +538,7 @@ const styles = StyleSheet.create({
     marginHorizontal: ThemeTokens.spacing.lg,
     marginBottom: ThemeTokens.spacing.md,
     padding: ThemeTokens.spacing.lg,
-    backgroundColor: Colors.primary + '10', // Light background with primary tint
+    // backgroundColor: Colors.primary + '10', // Light background with primary tint
     borderLeftWidth: 4,
     borderLeftColor: Colors.primary,
   },

@@ -114,7 +114,7 @@ export default function WorkoutScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [workoutType, setWorkoutType] = useState<WorkoutType>('cardiovascular');
   const [allWorkouts, setAllWorkouts] = useState<WorkoutLog[]>([]);
-  
+
   // Form state
   const [exerciseName, setExerciseName] = useState('');
   const [sets, setSets] = useState('');
@@ -123,7 +123,7 @@ export default function WorkoutScreen() {
   const [duration, setDuration] = useState('');
   const [rpe, setRpe] = useState('');
   const [notes, setNotes] = useState('');
-  
+
   // Exercise search state
   const [exerciseSuggestions, setExerciseSuggestions] = useState<ExerciseSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -204,12 +204,12 @@ export default function WorkoutScreen() {
 
   const loadAllWorkouts = async () => {
     if (!user?.id) return;
-    
+
     setLoading(true);
     try {
       const workoutDocRef = doc(db, "workout", user.id);
       const workoutDocSnap = await getDoc(workoutDocRef);
-      
+
       if (workoutDocSnap.exists()) {
         const data = workoutDocSnap.data();
         const workoutsArray = Array.isArray(data.workouts) ? data.workouts : [];
@@ -282,7 +282,7 @@ export default function WorkoutScreen() {
   const handleExerciseNameChange = async (text: string) => {
     setExerciseName(text);
     setCalculatedCalories(null);
-    
+
     if (text.length >= 2) {
       setSearchingExercises(true);
       setShowSuggestions(true);
@@ -308,12 +308,12 @@ export default function WorkoutScreen() {
     setSelectedExercise(exercise);
     setShowSuggestions(false);
     setExerciseSuggestions([]);
-    
+
     // If it's a cardio exercise and duration is set, calculate calories
     if (workoutType === 'cardiovascular' && duration) {
       calculateCalories();
     }
-    
+
     // Load exercise details if available
     if (exercise.muscle || exercise.equipment) {
       // Details already loaded in suggestion
@@ -333,7 +333,7 @@ export default function WorkoutScreen() {
   // Calculate calories burned
   const calculateCalories = async () => {
     if (!exerciseName || !duration || workoutType !== 'cardiovascular') return;
-    
+
     const durationNum = parseFloat(duration);
     if (isNaN(durationNum) || durationNum <= 0) {
       setCalculatedCalories(null);
@@ -385,7 +385,7 @@ export default function WorkoutScreen() {
       if (workoutType === 'cardiovascular') {
         workoutData.duration_min = parseFloat(duration);
         workoutData.sets = 1;
-        
+
         // Calculate calories using API
         const userWeight = user?.weight_kg || 70;
         const calories = await calculateCaloriesBurned(exerciseName.trim(), parseFloat(duration), userWeight);
@@ -475,7 +475,7 @@ export default function WorkoutScreen() {
   const strengthWorkouts = workouts.filter((w) => w.duration_min === null || w.duration_min === undefined);
 
   const dailyCardioMinutes = cardioWorkouts.reduce((sum, w) => sum + (w.duration_min || 0), 0);
-  
+
   // Calculate daily calories using API (async calculation cached in component state)
   const [dailyCardioCalories, setDailyCardioCalories] = useState(0);
   const [weeklyCardioCalories, setWeeklyCardioCalories] = useState(0);
@@ -516,13 +516,13 @@ export default function WorkoutScreen() {
   // Weekly totals (last 7 days from selected date)
   const weekAgo = new Date(selectedDate);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  
+
   const weeklyWorkouts = allWorkouts.filter((w: any) => {
     if (!w.timestamp) return false;
     const workoutDate = new Date(w.timestamp);
     return workoutDate >= weekAgo && workoutDate <= selectedDate;
   });
-  
+
   const weeklyCardioMinutes = weeklyWorkouts
     .filter((w) => w.duration_min)
     .reduce((sum, w) => sum + (w.duration_min || 0), 0);
@@ -532,13 +532,13 @@ export default function WorkoutScreen() {
     const calculateWeeklyCalories = async () => {
       const weekAgo = new Date(selectedDate);
       weekAgo.setDate(weekAgo.getDate() - 7);
-      
+
       const weekWorkouts = allWorkouts.filter((w: any) => {
         if (!w.timestamp) return false;
         const workoutDate = new Date(w.timestamp);
         return workoutDate >= weekAgo && workoutDate <= selectedDate;
       });
-      
+
       const weeklyCardioWorkouts = weekWorkouts.filter((w) => w.duration_min);
       if (weeklyCardioWorkouts.length === 0) {
         setWeeklyCardioCalories(0);
@@ -578,33 +578,29 @@ export default function WorkoutScreen() {
           <TouchableOpacity onPress={() => openModal('cardiovascular')} style={styles.actionLink}>
             <Text style={styles.actionLinkText}>Add Exercise</Text>
           </TouchableOpacity>
-          </View>
         </View>
-        
+      </View>
+
       {/* Totals Table */}
       <View style={styles.totalsTable}>
         <View style={styles.tableHeader}>
+          <Text style={styles.tableHeaderText}>Goal</Text>
           <Text style={styles.tableHeaderText}>Minutes</Text>
           <Text style={styles.tableHeaderText}>Calories Burned</Text>
-          </View>
-        <View style={styles.tableRow}>
-          <Text style={styles.tableLabel}>Daily Total / Goal</Text>
-          <Text style={styles.tableValue}>{dailyCardioMinutes} / 30</Text>
-          <Text style={styles.tableValue}>{dailyCardioCalories} / 300</Text>
-          </View>
-        <View style={styles.tableRow}>
-          <Text style={styles.tableLabel}>Weekly Total / Goal</Text>
-          <Text style={styles.tableValue}>{weeklyCardioMinutes} / 150</Text>
-          <Text style={styles.tableValue}>{weeklyCardioCalories} / 1500</Text>
-          </View>
         </View>
-        
+        <View style={styles.tableRow}>
+          <Text style={styles.tableLabel}>Daily Total</Text>
+          <Text style={styles.tableValue}>{dailyCardioMinutes}</Text>
+          <Text style={styles.tableValue}>{dailyCardioCalories}</Text>
+        </View>
+      </View>
+
       {/* Logged Exercises */}
       {cardioWorkouts.length > 0 && (
         <View style={styles.loggedExercises}>
           <Text style={styles.loggedTitle}>Today's Exercises</Text>
           <CardioExerciseList workouts={cardioWorkouts} userWeight={user?.weight_kg || 70} onDelete={deleteWorkout} />
-          </View>
+        </View>
       )}
     </Card>
   );
@@ -617,36 +613,41 @@ export default function WorkoutScreen() {
           <TouchableOpacity onPress={() => openModal('strength')} style={styles.actionLink}>
             <Text style={styles.actionLinkText}>Add Exercise</Text>
           </TouchableOpacity>
-          </View>
         </View>
-        
+      </View>
+
       {/* Table Header */}
       <View style={styles.strengthTableHeader}>
-        <Text style={styles.strengthHeaderText}>Exercise</Text>
+        {/* <Text style={styles.strengthHeaderText}>Exercise</Text> */}
         <Text style={styles.strengthHeaderText}>Sets</Text>
         <Text style={styles.strengthHeaderText}>Reps/Set</Text>
         <Text style={styles.strengthHeaderText}>Weight/Set</Text>
+        <Text style={styles.strengthHeaderText}></Text>
       </View>
 
       {/* Logged Exercises */}
       {strengthWorkouts.length > 0 ? (
         strengthWorkouts.map((workout) => (
+          <View style={{display:'flex', flexDirection:'row', alignItems:'center', justifyContent:'space-between', width:'100%'}}>
           <View key={workout.id} style={styles.strengthRow}>
             <View style={styles.strengthExerciseInfo}>
               <Text style={styles.strengthExerciseName}>{workout.exercise}</Text>
-              <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
-                <MaterialIcons name="delete" size={18} color={Colors.error} />
-              </TouchableOpacity>
-      </View>
+            </View>
+            <View style={{display:'flex', flexDirection:'row'}}>
             <Text style={styles.strengthValue}>{workout.sets || '-'}</Text>
             <Text style={styles.strengthValue}>{workout.reps || '-'}</Text>
             <Text style={styles.strengthValue}>{workout.weight ? `${workout.weight} kg` : '-'}</Text>
-      </View>
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
+                <MaterialIcons name="delete" size={18} color={Colors.error} />
+              </TouchableOpacity>
+          </View>
         ))
       ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No strength exercises logged today</Text>
-      </View>
+        </View>
       )}
     </Card>
   );
@@ -654,21 +655,21 @@ export default function WorkoutScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
-      {/* Profile Image Display - now inside ScrollView */}
-      <View style={styles.profileImageContainer}>
-        <ProfileImageDisplay
-          size={40}
-          onPress={() => setIsProfileModalVisible(true)}
-          profileImageUrl={user?.profile_image_url}
-        />
-      </View>
+        {/* Profile Image Display - now inside ScrollView */}
+        <View style={styles.profileImageContainer}>
+          <ProfileImageDisplay
+            size={40}
+            onPress={() => setIsProfileModalVisible(true)}
+            profileImageUrl={user?.profile_image_url}
+          />
+        </View>
         {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Workout Diary</Text>
             <Text style={styles.subtitle}>Track your daily activities</Text>
           </View>
-          </View>
+        </View>
 
         {/* Date Selector */}
         <Card style={styles.dateCard}>
@@ -682,12 +683,7 @@ export default function WorkoutScreen() {
               <TouchableOpacity onPress={() => changeDate(1)} style={styles.dateButton}>
                 <MaterialIcons name="chevron-right" size={24} color={Colors.primary} />
               </TouchableOpacity>
-              {!isSameDay(selectedDate, new Date()) && (
-                <TouchableOpacity onPress={() => setSelectedDate(new Date())} style={styles.todayButton}>
-                  <Text style={styles.todayButtonText}>Today</Text>
-                </TouchableOpacity>
-              )}
-        </View>
+            </View>
           </View>
         </Card>
 
@@ -704,7 +700,7 @@ export default function WorkoutScreen() {
             <View style={styles.summaryItem}>
               <Text style={styles.summaryValue}>{workouts.length}</Text>
               <Text style={styles.summaryLabel}>Total Exercises</Text>
-        </View>
+            </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryValue}>{dailyCardioMinutes}</Text>
               <Text style={styles.summaryLabel}>Cardio Minutes</Text>
@@ -733,8 +729,8 @@ export default function WorkoutScreen() {
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <MaterialIcons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
-        </View>
-        
+            </View>
+
             <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Exercise Name *</Text>
@@ -757,12 +753,12 @@ export default function WorkoutScreen() {
                   {searchingExercises && (
                     <ActivityIndicator size="small" color={Colors.primary} style={styles.searchIndicator} />
                   )}
-        </View>
-        
+                </View>
+
                 {/* Exercise Suggestions */}
                 {showSuggestions && exerciseSuggestions.length > 0 && (
                   <View style={styles.suggestionsContainer}>
-        <FlatList
+                    <FlatList
                       data={exerciseSuggestions}
                       keyExtractor={(item, index) => `${item.name}-${index}`}
                       renderItem={({ item }) => (
@@ -809,8 +805,8 @@ export default function WorkoutScreen() {
                     )}
                   </View>
                 )}
-        </View>
-        
+              </View>
+
               {workoutType === 'cardiovascular' ? (
                 <>
                   <View style={styles.formGroup}>
@@ -830,7 +826,7 @@ export default function WorkoutScreen() {
                           Estimated calories: {calculatedCalories} cal
                           {user?.weight_kg && ` (based on ${user.weight_kg}kg weight)`}
                         </Text>
-            </View>
+                      </View>
                     )}
                     {calculatingCalories && (
                       <View style={styles.caloriesPreview}>
@@ -895,8 +891,8 @@ export default function WorkoutScreen() {
                   multiline
                   numberOfLines={3}
                 />
-        </View>
-      </ScrollView>
+              </View>
+            </ScrollView>
 
             <View style={styles.modalFooter}>
               <Button
@@ -1124,7 +1120,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   strengthRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     padding: ThemeTokens.spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
@@ -1137,7 +1133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   strengthExerciseName: {
-    flex: 1,
+    // flex: 1,
     fontSize: 14,
     fontWeight: '600',
     color: Colors.text,

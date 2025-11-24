@@ -61,11 +61,6 @@ const removeSecureItem = async (key: string): Promise<void> => {
   }
 };
 
-// TokenResponse interface and refreshAuthToken are no longer needed for Firebase Auth
-// interface TokenResponse {
-//   access: string;
-//   refresh: string;
-// }
 
 // const refreshAuthToken = async (): Promise<boolean> => { /* ... removed ... */ };
 
