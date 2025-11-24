@@ -89,9 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("---------------------------------",userData)
         //check if macros are calculated or else calc and store in db
         let macros;
-        if(!userData.macros){
+        if(userData?.macros){
+          macros = userData?.macros;
+        }else{
           macros = calcMacros(userData)
-          console.log("macros---------------------------------",macros)
           await updateDoc(userDocRef, { macros });
         }
         setUser({
