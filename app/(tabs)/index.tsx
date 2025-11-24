@@ -18,6 +18,8 @@ import apiClient from '../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
 import { ProfileModal } from '../../components/ProfileModal';
+import { doc, getDoc, where, query, collection, getDocs } from 'firebase/firestore';
+import { db } from '@/utils/firebase';
 
 interface MealLog {
   id: number;
@@ -129,10 +131,15 @@ export default function DashboardScreen() {
 
       // Fetch daily expenses
       try {
-        const expenseLogs = await apiClient.get<ExpenseItem[]>(`/expenses/logs/?date=${today}`);
-        console.log('Expense logs response:', expenseLogs);
-        const totalDailyExpenses = expenseLogs.reduce((sum, item) => sum + Number(item.amount), 0);
-        console.log('Total daily expenses:', totalDailyExpenses);
+        //get from firebase db expense collection
+        const q = query(collection(db, "expense"), where("user_id", "==", user?.id));
+        const querySnapshot = await getDocs(q);
+        let totalDailyExpenses = 0;
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+          totalDailyExpenses += expensesArray.reduce((sum, item) => sum + Number(item.amount), 0);
+        });
         setDailyExpenses(totalDailyExpenses);
       } catch (error) {
         console.error('Error fetching daily expenses:', error);
