@@ -1,35 +1,35 @@
+import { db } from '@/utils/firebase';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
 import {
-  FlatList,
-  Image,
+  ActivityIndicator,
+  Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  Modal,
-  TextInput,
-  Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
+import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
+import { ProfileModal } from '../../components/ProfileModal';
 import { Colors } from '../../constants/Colors';
 import { ThemeTokens } from '../../constants/ThemeTokens';
-import apiClient from '../api/apiClient';
 import { useAuth } from '../../context/AuthContext';
-import { ProfileImageDisplay } from '../../components/ProfileImageDisplay'; // Import ProfileImageDisplay
-import { ProfileModal } from '../../components/ProfileModal'; // Import ProfileModal
-import { useRouter } from 'expo-router'; // Import useRouter
+import apiClient from '../api/apiClient';
 
-interface ExpenseItem {
-  id: number;
+interface ExpenseData {
+  id: string;
   description: string;
   category: string;
   amount: number;
   date: string; // ISO date string
-  created_at: string;
+  user_id: string;
 }
 
 interface Category {
@@ -52,20 +52,25 @@ const expenseCategories: Category[] = [
 export default function ExpenseScreen() {
   const router = useRouter();
   const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth();
-  const [activeTab, setActiveTab] = useState('expenses');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseData[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false); // State for profile modal
-  const [monthlyBudget, setMonthlyBudget] = useState(5000); // New state for monthly budget
-  const [editBudgetModalVisible, setEditBudgetModalVisible] = useState(false); // New state for edit budget modal
-  const [newBudget, setNewBudget] = useState(''); // State for new budget input
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  const [monthlyBudget, setMonthlyBudget] = useState(5000);
+  const [editBudgetModalVisible, setEditBudgetModalVisible] = useState(false);
+  const [newBudget, setNewBudget] = useState('');
   
+  // Load monthly budget from user data
+  useEffect(() => {
+    if (user?.monthly_budget) {
+      setMonthlyBudget(user.monthly_budget);
+    }
+  }, [user?.monthly_budget]);
+
   // Reset states when user logs out
   useEffect(() => {
     if (!isLoggedIn) {
-      setActiveTab('expenses');
       setSelectedCategoryFilter('all');
       setExpenses([]);
       setDescription('');
@@ -74,9 +79,9 @@ export default function ExpenseScreen() {
       setExpenseDate(new Date());
       setModalVisible(false);
       setIsProfileModalVisible(false);
-      setMonthlyBudget(5000); // Reset monthly budget on logout
-      setEditBudgetModalVisible(false); // Close budget edit modal on logout
-      setNewBudget(''); // Clear new budget input on logout
+      setMonthlyBudget(5000);
+      setEditBudgetModalVisible(false);
+      setNewBudget('');
     }
   }, [isLoggedIn]);
 
@@ -86,26 +91,39 @@ export default function ExpenseScreen() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expenseDate, setExpenseDate] = useState(new Date());
 
+
   useEffect(() => {
-    loadExpenses();
-  }, []);
+    if (user?.id && isLoggedIn) {
+      loadExpenses();
+    } else {
+      setExpenses([]);
+    }
+  }, [user?.id, isLoggedIn]);
 
   const loadExpenses = async () => {
+    if (!user?.id) return;
+    
     setLoading(true);
     try {
-      const response = await apiClient.get<any>('/expenses/logs/');
-      let fetchedExpenses: ExpenseItem[] = [];
-      if (Array.isArray(response)) {
-        fetchedExpenses = response;
-      } else if (response && response.results && Array.isArray(response.results)) {
-        fetchedExpenses = response.results;
+      const expenseDocRef = doc(db, "expense", user.id);
+      const expenseDocSnap = await getDoc(expenseDocRef);
+      
+      if (expenseDocSnap.exists()) {
+        const data = expenseDocSnap.data();
+        const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+        // Map expenses array to include document ID for each expense
+        const expensesData: ExpenseData[] = expensesArray.map((expense: any, index: number) => ({
+          id: expense.id || `${user.id}_${index}`,
+          ...expense,
+        }));
+        console.log("expensesData---------------------------------",expensesData);
+        setExpenses(expensesData);
+      } else {
+        setExpenses([]);
       }
-      setExpenses(fetchedExpenses);
     } catch (error: any) {
       console.error('Error loading expenses:', error);
-      // if (error.response?.status !== 401) {
-        Alert.alert('Error', 'Failed to load expenses. Please try again.');
-      // }
+      Alert.alert('Error', 'Failed to load expenses. Please try again.');
       setExpenses([]);
     } finally {
       setLoading(false);
@@ -125,6 +143,11 @@ export default function ExpenseScreen() {
   };
 
   const saveExpense = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Please log in to save expenses.');
+      return;
+    }
+
     if (!description.trim() || !amount.trim() || !selectedCategory) {
       Alert.alert('Error', 'Please fill in all required fields.');
       return;
@@ -144,57 +167,89 @@ export default function ExpenseScreen() {
         date: expenseDate.toISOString().split('T')[0], // YYYY-MM-DD
       };
 
-      await apiClient.post('/expenses/logs/', expenseData);
+      // Use document ID that matches user.id
+      const expenseDocRef = doc(db, "expense", user.id);
+      const expenseDocSnap = await getDoc(expenseDocRef);
+
+      if (expenseDocSnap.exists()) {
+        // If the document exists, update it by adding the new expense
+        const prevData = expenseDocSnap.data();
+        // Ensure prevData.expenses is an array
+        const updatedExpenses = Array.isArray(prevData.expenses)
+          ? [...prevData.expenses, expenseData]
+          : [expenseData];
+        await updateDoc(expenseDocRef, { expenses: updatedExpenses });
+      } else {
+        // If not exists, create a new doc with expenses as an array
+        await setDoc(expenseDocRef, {
+          expenses: [expenseData],
+        });
+      }
+
       setModalVisible(false);
       resetForm();
       await loadExpenses();
       Alert.alert('Success', 'Expense logged successfully!');
-      triggerDashboardRefresh(); // Trigger dashboard refresh
+      triggerDashboardRefresh();
     } catch (error: any) {
       console.error('Error saving expense:', error);
       Alert.alert(
         'Error',
-        error.response?.data?.detail || 'Failed to save expense. Please try again.'
+        error.message || 'Failed to save expense. Please try again.'
       );
     }
   };
 
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  // const monthlyBudget = 5000; // This should ideally come from user settings or API
-  const budgetUsed = (totalExpenses / monthlyBudget) * 100;
+  const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const budgetUsed = monthlyBudget > 0 ? (totalExpenses / monthlyBudget) * 100 : 0;
 
   const filteredExpenses = expenses.filter((expense) => {
+    console.log("expense---------------------------------",expense)
+    console.log("selectedCategoryFilter---------------------------------",selectedCategoryFilter)
     if (selectedCategoryFilter === 'all') return true;
-    return expense.category.toLowerCase() === selectedCategoryFilter;
+    console.log("expenseCategories---------------------------------",expenseCategories)
+    const categoryName = expenseCategories.find(cat => cat.id === selectedCategoryFilter)?.name;
+    console.log("categoryName---------------------------------",categoryName)
+    return expense.category?.toLowerCase() === categoryName?.toLowerCase();
   });
 
-  const renderExpenseItem = ({ item }: { item: ExpenseItem }) => (
+  const renderExpenseItem = ({ item }: { item: any }) => (
     <View style={styles.expenseItem}>
       <View style={[styles.expenseIcon, { backgroundColor: `${getCategoryColor(item.category)}20` }]}>
         <MaterialIcons 
-          name={getCategoryIcon(item.category)} 
+          name={getCategoryIcon(item?.category)} 
           size={20} 
-          color={getCategoryColor(item.category)} 
+          color={getCategoryColor(item?.category)} 
         />
       </View>
       <View style={styles.expenseInfo}>
         <Text style={styles.expenseTitle}>{item.description}</Text>
-        <Text style={styles.expenseCategory}>{item.category}</Text>
+        <Text style={styles.expenseCategory}>{item?.category}</Text>
       </View>
       <View style={styles.expenseAmountContainer}>
-        <Text style={styles.expenseAmount}>₹{item.amount.toLocaleString()}</Text>
-        <Text style={styles.expenseDate}>{new Date(item.date).toLocaleDateString()}</Text>
+        <Text style={styles.expenseAmount}>₹{item?.amount?.toLocaleString()}</Text>
+        <Text style={styles.expenseDate}>
+          {item.date
+            ? new Date(
+                typeof item?.date === 'number'
+                  ? item.date
+                  : typeof item?.date === 'object' && item?.date?.seconds
+                  ? item?.date?.seconds * 1000
+                  : item?.date
+              ).toLocaleDateString()
+            : ''}
+        </Text>
       </View>
     </View>
   );
 
   const getCategoryColor = (category: string) => {
-    const cat = expenseCategories.find((c) => c.name.toLowerCase() === category.toLowerCase());
+    const cat = expenseCategories.find((c) => c?.name?.toLowerCase() === category?.toLowerCase());
     return cat ? cat.color : Colors.primary;
   };
 
   const getCategoryIcon = (category: string) => {
-    const cat = expenseCategories.find((c) => c.name.toLowerCase() === category.toLowerCase());
+    const cat = expenseCategories.find((c) => c?.name?.toLowerCase() === category?.toLowerCase());
     return cat ? cat.icon : 'help-outline';
   };
 
@@ -211,7 +266,6 @@ export default function ExpenseScreen() {
 
   const handleCheckUpdates = () => {
     setIsProfileModalVisible(false);
-    console.log('Checking for updates...');
   };
 
   const handleViewProfile = () => {
@@ -236,9 +290,6 @@ export default function ExpenseScreen() {
       setEditBudgetModalVisible(false);
       setNewBudget('');
       Alert.alert('Success', 'Monthly budget updated successfully!');
-      // Refresh user context to ensure the budget is updated globally
-      await user?.id; // This line is not needed, refreshUser will handle it
-      // Also trigger a dashboard refresh to update any displayed budget info
       triggerDashboardRefresh();
     } catch (error: any) {
       console.error('Error saving monthly budget:', error);
@@ -384,13 +435,14 @@ export default function ExpenseScreen() {
           {loading ? (
             <ActivityIndicator size="large" color={Colors.primary} style={{ padding: 20 }} />
           ) : filteredExpenses.length > 0 ? (
-            <FlatList
-              data={filteredExpenses}
-              renderItem={renderExpenseItem}
-              keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            <View>
+              {filteredExpenses.map((item: any, index) => (
+                <View key={item?.id || item?.date || index}>
+                  {renderExpenseItem({ item })}
+                  {index < filteredExpenses.length - 1 && <View style={styles.separator} />}
+                </View>
+              ))}
+            </View>
           ) : (
             <View style={styles.emptyState}>
               <MaterialIcons name="receipt" size={48} color={Colors.lightGray} />
