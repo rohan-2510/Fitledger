@@ -1,15 +1,17 @@
 // app/(tabs)/nutrition.tsx
+import { db } from '@/utils/firebase';
 import { MaterialIcons } from '@expo/vector-icons';
-import React, { useState, useEffect, useRef } from 'react';
-import { FlatList, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Card } from 'react-native-paper';
 import { Button } from '../../components/Button';
-import { Colors } from '../../constants/Colors';
-import api from '../api/apiClient';
-import { useAuth } from '../../context/AuthContext';
 import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
-import { ProfileModal } from '../../components/ProfileModal'; 
-import { useRouter } from 'expo-router';
+import { ProfileModal } from '../../components/ProfileModal';
+import { Colors } from '../../constants/Colors';
+import { useAuth } from '../../context/AuthContext';
+import { useGenAI } from '../../hooks/use-genai';
 
 interface FoodItem {
   id: string;
@@ -26,18 +28,14 @@ interface Meal {
   name: string;
   foods: FoodItem[];
   time?: string;
+  date?: string; // ISO date string for filtering
 }
 
-interface ApiResponse<T> {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: T[];
-}
 
 const NutritionScreen: React.FC = () => {
   const router = useRouter();
   const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth(); // Destructure triggerDashboardRefresh
+  const { generateNutrition, isLoading: isGenAILoading, error: genAIError } = useGenAI();
   const [meals, setMeals] = useState<Meal[]>([
     { id: '1', name: 'Breakfast', foods: [] },
     { id: '2', name: 'Lunch', foods: [] },
@@ -48,13 +46,23 @@ const NutritionScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodItem[]>([]);
-  const [selectedMeal, setSelectedMeal] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
 
-  // Debounce for search input
-  const debouncedSearch = useRef<number | null>(null);
+  // Load meals from Firebase on mount and when user changes
+  useEffect(() => {
+    if (user?.id && isLoggedIn) {
+      loadMeals();
+    } else {
+      setMeals([
+        { id: '1', name: 'Breakfast', foods: [] },
+        { id: '2', name: 'Lunch', foods: [] },
+        { id: '3', name: 'Dinner', foods: [] },
+        { id: '4', name: 'Snacks', foods: [] },
+      ]);
+    }
+  }, [user?.id, isLoggedIn]);
 
   // When user logs out, reset all relevant states
   useEffect(() => {
@@ -67,11 +75,75 @@ const NutritionScreen: React.FC = () => {
       ]);
       setSearchQuery('');
       setSearchResults([]);
-      setSelectedMeal('');
       setSearchError('');
       setIsSearching(false);
     }
   }, [isLoggedIn]);
+
+  const loadMeals = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const nutritionDocRef = doc(db, "nutrition", user.id);
+      const nutritionDocSnap = await getDoc(nutritionDocRef);
+      
+      if (nutritionDocSnap.exists()) {
+        const data = nutritionDocSnap.data();
+        const mealsArray = Array.isArray(data.meals) ? data.meals : [];
+        
+        // Filter meals for today
+        const todayMeals = mealsArray.filter((meal: any) => {
+          if (!meal.date) return false;
+          return meal.date === today;
+        });
+        
+        // Initialize meal structure with today's foods
+        const mealStructure: Meal[] = [
+          { id: '1', name: 'Breakfast', foods: [] },
+          { id: '2', name: 'Lunch', foods: [] },
+          { id: '3', name: 'Dinner', foods: [] },
+          { id: '4', name: 'Snacks', foods: [] },
+        ];
+        
+        // Populate meals with today's foods
+        todayMeals.forEach((meal: any) => {
+          const mealIndex = mealStructure.findIndex(m => m.name === meal.meal_name);
+          if (mealIndex !== -1 && meal.food) {
+            const foodItem: FoodItem = {
+              id: meal.food.id || '',
+              name: meal.food.name || '',
+              calories: meal.food.calories || 0,
+              protein: meal.food.protein || 0,
+              carbs: meal.food.carbs || 0,
+              fats: meal.food.fats || 0,
+              source: meal.food.source,
+            };
+            mealStructure[mealIndex].foods.push(foodItem);
+          }
+        });
+        
+        setMeals(mealStructure);
+      } else {
+        // Initialize with empty meals
+        setMeals([
+          { id: '1', name: 'Breakfast', foods: [] },
+          { id: '2', name: 'Lunch', foods: [] },
+          { id: '3', name: 'Dinner', foods: [] },
+          { id: '4', name: 'Snacks', foods: [] },
+        ]);
+      }
+    } catch (error: any) {
+      console.error('Error loading meals:', error);
+      Alert.alert('Error', 'Failed to load meals. Please try again.');
+      setMeals([
+        { id: '1', name: 'Breakfast', foods: [] },
+        { id: '2', name: 'Lunch', foods: [] },
+        { id: '3', name: 'Dinner', foods: [] },
+        { id: '4', name: 'Snacks', foods: [] },
+      ]);
+    }
+  };
 
   // Removed static nutritionGoals object
 
@@ -126,7 +198,7 @@ const NutritionScreen: React.FC = () => {
   const searchFoods = async () => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
-      setSearchError('Please enter a food name to search');
+      setSearchError('Please enter a food item (e.g., "100g of paneer")');
       return;
     }
     
@@ -134,104 +206,108 @@ const NutritionScreen: React.FC = () => {
     setIsSearching(true);
     
     try {
-      console.log('Searching for:', searchQuery);
-      // Now calling the backend proxy for USDA FoodData Central
-      const response = await api.get<ApiResponse<FoodItem>>(`/fooddata/search/?query=${encodeURIComponent(searchQuery)}`);
-      console.log('Search response from backend proxy:', response);
-
-      // API client returns the data directly (axios response.data), so response is already { results: [...], count: ... }
-      if (response && response.results && Array.isArray(response.results)) {
-        const foodItems = response.results.map((item: any) => ({
-          id: item.id.toString(),
-          name: item.name,
-          calories: item.calories || 0,
-          protein: item.protein || 0,
-          carbs: item.carbs || 0,
-          fats: item.fats || 0 // Use 'fats' from backend response
-        }));
+      console.log('Generating nutrition data with Gemini for:', searchQuery);
+      const nutritionData = await generateNutrition(searchQuery);
       
-        setSearchResults(foodItems);
-        if (foodItems.length === 0) {
-          setSearchError('No results found. Try a different search term.');
-        }
-      } else if (Array.isArray(response)) {
-        // Handle case where API returns array directly (if pagination is disabled)
-        const foodItems = response.map((item: any) => ({
-          id: item.id.toString(),
-          name: item.name,
-          calories: item.calories || 0,
-          protein: item.protein || 0,
-          carbs: item.carbs || 0,
-          fats: item.fats || 0 // Use 'fats' from backend response
-        }));
-        setSearchResults(foodItems);
-        if (foodItems.length === 0) {
-          setSearchError('No results found. Try a different search term.');
-        }
+      if (nutritionData) {
+        // Convert Gemini response to FoodItem format
+        const foodItem: FoodItem = {
+          id: `gemini_${Date.now()}`,
+          name: nutritionData.name || searchQuery,
+          calories: nutritionData.calories,
+          protein: nutritionData.protein,
+          carbs: nutritionData.carbs,
+          fats: nutritionData.fat,
+          source: 'Gemini',
+        };
+        
+        setSearchResults([foodItem]);
+        setSearchError('');
       } else {
-        console.error('Unexpected API response format:', response);
-        setSearchError('Invalid response from server');
+        setSearchError(genAIError || 'Failed to generate nutrition data. Please try again.');
         setSearchResults([]);
       }
     } catch (error) {
-        let errorMessage = 'Failed to search for food. Please try again.';
-        
-        if (error instanceof Error) {
-          console.error('Search error:', {
-            message: error.message,
-            status: (error as any).response?.status,
-            data: (error as any).response?.data
-          });
-          errorMessage = (error as any).response?.data?.message || errorMessage;
-        } else if (typeof error === 'string') {
-          errorMessage = error;
-        }
-        
-        setSearchError(errorMessage);
-        setSearchResults([]);
-      } finally {
+      console.error('Error generating nutrition data:', error);
+      setSearchError(genAIError || 'Failed to generate nutrition data. Please try again.');
+      setSearchResults([]);
+    } finally {
       setIsSearching(false);
     }
   };
 
   const addFoodToMeal = async (food: FoodItem) => {
-    if (!selectedMeal) {
-      alert('Please select a meal first');
+    if (!user?.id) {
+      Alert.alert('Error', 'Please log in to save meals.');
       return;
     }
+    
     console.log('Adding food:', food);
+
     try {
-      const logData: any = {
-        custom_name: food.name,
-        calories: food.calories || 0,
-        protein: food.protein || 0,
-        carbs: food.carbs || 0,
-        fats: food.fats || 0, // Ensure this is 'fats' from the FoodItem interface
-        quantity: 1,
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const currentHour = now.getHours();
+      
+      // Determine meal based on time of day
+      let mealName = 'Snacks';
+      if (currentHour >= 5 && currentHour < 11) {
+        mealName = 'Breakfast';
+      } else if (currentHour >= 11 && currentHour < 16) {
+        mealName = 'Lunch';
+      } else if (currentHour >= 16 && currentHour < 21) {
+        mealName = 'Dinner';
+      }
+
+      const mealLogData = {
+        id: `${user.id}_${Date.now()}`,
+        meal_name: mealName,
+        food: {
+          id: food.id,
+          name: food.name,
+          calories: food.calories || 0,
+          protein: food.protein || 0,
+          carbs: food.carbs || 0,
+          fats: food.fats || 0,
+          source: food.source,
+        },
+        date: today,
+        timestamp: new Date().toISOString(),
       };
 
-      const response = await api.post('/meals/logs/', logData);
+      // Use document ID that matches user.id
+      const nutritionDocRef = doc(db, "nutrition", user.id);
+      const nutritionDocSnap = await getDoc(nutritionDocRef);
+
+      if (nutritionDocSnap.exists()) {
+        // If the document exists, update it by adding the new meal log
+        const prevData = nutritionDocSnap.data();
+        // Ensure prevData.meals is an array
+        const updatedMeals = Array.isArray(prevData.meals)
+          ? [...prevData.meals, mealLogData]
+          : [mealLogData];
+        await updateDoc(nutritionDocRef, { meals: updatedMeals });
+      } else {
+        // If not exists, create a new doc with meals as an array
+        await setDoc(nutritionDocRef, {
+          meals: [mealLogData],
+        });
+      }
       
-      // Add to local state
-      setMeals(prevMeals => 
-        prevMeals.map(meal => 
-          meal.id === selectedMeal
-            ? { ...meal, foods: [...meal.foods, food] }
-            : meal
-        )
-      );
+      // Reload meals from Firebase to ensure UI is updated
+      await loadMeals();
       
       setModalVisible(false);
       setSearchQuery('');
       setSearchResults([]);
       
       // Show success message
-      alert('Food added successfully!');
+      Alert.alert('Success', `Food added to ${mealName} successfully!`);
       triggerDashboardRefresh(); // Trigger dashboard refresh
     } catch (error: any) {
       console.error('Error adding food:', error);
-      const errorMessage = error.response?.data?.detail || error.response?.data?.message || 'Failed to add food. Please try again.';
-      alert(errorMessage);
+      const errorMessage = error.message || 'Failed to add food. Please try again.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -370,13 +446,13 @@ const NutritionScreen: React.FC = () => {
           <Text style={styles.seeAllText}>See All</Text>
         </View>
         
-        <FlatList
-          data={meals}
-          renderItem={renderMealItem}
-          keyExtractor={item => item.id}
-          scrollEnabled={false}
-          contentContainerStyle={styles.mealList}
-        />
+        <View style={styles.mealList}>
+          {meals.map((meal) => (
+            <View key={meal.id}>
+              {renderMealItem({ item: meal })}
+            </View>
+          ))}
+        </View>
       </ScrollView>
       
       <View style={styles.fabContainer}>
@@ -397,77 +473,51 @@ const NutritionScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <Card style={styles.modalCard}>
-            <Card.Title title="Log Food" />
+            <Card.Title title="Add Food with AI" />
             <Card.Content>
-              <Text style={styles.mealSelectLabel}>Select Meal:</Text>
-              <View style={styles.mealButtons}>
-                {meals.map((meal) => (
-                  <Button
-                    key={meal.id}
-                    title={meal.name}
-                    variant={selectedMeal === meal.id ? 'primary' : 'outline'}
-                    onPress={() => setSelectedMeal(meal.id)}
-                    style={styles.mealButton}
-                  />
-                ))}
-              </View>
-            
               <View style={styles.searchContainer}>
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search for food..."
+                  placeholder="Enter food item (e.g., 100g of paneer, 2 eggs, 1 cup rice)"
                   value={searchQuery}
-                  onChangeText={(text) => {
-                    setSearchQuery(text);
-                    if (debouncedSearch.current) {
-                      clearTimeout(debouncedSearch.current);
-                    }
-                    debouncedSearch.current = setTimeout(() => {
-                      if (text.trim()) {
-                        searchFoods();
-                      }
-                    }, 500); // Debounce for 500ms
-                  }}
+                  onChangeText={setSearchQuery}
                   onSubmitEditing={searchFoods}
                   placeholderTextColor={Colors.gray}
                 />
                 <Button
-                  title={isSearching ? 'Searching...' : 'Search'}
-                  onPress={() => {
-                    if (debouncedSearch.current) {
-                      clearTimeout(debouncedSearch.current);
-                    }
-                    searchFoods();
-                  }}
+                  title={isSearching || isGenAILoading ? 'Generating...' : 'Generate'}
+                  onPress={searchFoods}
                   variant="primary"
                   style={styles.searchButton}
-                  disabled={isSearching}
+                  disabled={isSearching || isGenAILoading}
                 />
               </View>
               
-              {searchError ? (
-                <Text style={styles.errorText}>{searchError}</Text>
+              {searchError || genAIError ? (
+                <Text style={styles.errorText}>{searchError || genAIError}</Text>
               ) : null}
               
-              {isSearching ? (
-                <Text style={styles.loadingText}>Searching for food items...</Text>
+              {isSearching || isGenAILoading ? (
+                <Text style={styles.loadingText}>
+                  Generating nutrition data with AI...
+                </Text>
               ) : null}
               
-              <FlatList
-                data={searchResults}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
+              <ScrollView 
+                style={styles.searchResults}
+                keyboardShouldPersistTaps="handled"
+              >
+                {searchResults.map((item) => (
                   <TouchableOpacity 
+                    key={item.id}
                     style={styles.foodItem}
                     onPress={() => addFoodToMeal(item)}
                   >
                     <Text style={styles.foodItemName}>{item.name}</Text>
                     <Text style={styles.foodItemCalories}>{item.calories} cal</Text>
                   </TouchableOpacity>
-                )}
-                style={styles.searchResults}
-                keyboardShouldPersistTaps="handled"
-              />
+                ))}
+              </ScrollView>
             </Card.Content>
             <Card.Actions style={styles.modalActions}>
               <Button 
@@ -729,21 +779,6 @@ const styles = StyleSheet.create({
   modalActions: {
     justifyContent: 'flex-end',
     padding: 16,
-  },
-  mealSelectLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: Colors.text,
-    fontWeight: '500',
-  },
-  mealButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 16,
-  },
-  mealButton: {
-    marginRight: 8,
-    marginBottom: 8,
   },
   searchContainer: {
     flexDirection: 'row',

@@ -19,14 +19,6 @@ import { ProfileModal } from '../../components/ProfileModal';
 import { Colors } from '../../constants/Colors';
 import { ThemeTokens } from '../../constants/ThemeTokens';
 import { useAuth } from '../../context/AuthContext';
-import apiClient from '../api/apiClient';
-
-interface MealLog {
-  id: number;
-  custom_name: string;
-  calories: number;
-  date: string;
-}
 
 interface ExpenseItem {
   id: number;
@@ -119,11 +111,34 @@ export default function DashboardScreen() {
       const today = new Date().toISOString().split('T')[0];
       console.log('Fetching dashboard data for date:', today);
 
-      // Fetch daily meal calories
+      // Fetch daily meal calories from Firebase nutrition collection
       try {
-        const mealLogs = await apiClient.get<MealLog[]>(`/meals/logs/?date=${today}`);
-        const totalDailyCalories = mealLogs.reduce((sum, log) => sum + log.calories, 0);
-        setDailyCalories(totalDailyCalories);
+        if (!user?.id) {
+          setDailyCalories(0);
+        } else {
+          const nutritionDocRef = doc(db, "nutrition", user.id);
+          const nutritionDocSnap = await getDoc(nutritionDocRef);
+          
+          if (nutritionDocSnap.exists()) {
+            const data = nutritionDocSnap.data();
+            const mealsArray = Array.isArray(data.meals) ? data.meals : [];
+            
+            // Filter meals for today and sum calories
+            const todayMeals = mealsArray.filter((meal: any) => {
+              if (!meal.date) return false;
+              return meal.date === today;
+            });
+            
+            const totalDailyCalories = todayMeals.reduce((sum: number, meal: any) => {
+              const foodCalories = meal.food?.calories || 0;
+              return sum + foodCalories;
+            }, 0);
+            
+            setDailyCalories(totalDailyCalories);
+          } else {
+            setDailyCalories(0);
+          }
+        }
       } catch (error) {
         console.error('Error fetching daily calories:', error);
         setDailyCalories(0);

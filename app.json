@@ -60,7 +60,8 @@
         "projectId": "4b9c87c3-e607-4264-8566-69d4341ec57b"
       },
       "apiUrl": "http://localhost:8000/api",
-      "apiNinjasKey": "SnisqheKGMBYV+u8IzrIjw==jrjXFRiLVqPxzyfR"
+      "apiNinjasKey": "SnisqheKGMBYV+u8IzrIjw==jrjXFRiLVqPxzyfR",
+      "geminiApiKey": ""
     }
   }
 }
