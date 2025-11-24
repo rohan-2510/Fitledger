@@ -130,22 +130,16 @@ export default function DashboardScreen() {
       }
 
       // Fetch daily expenses
-      try {
-        //get from firebase db expense collection
-        const q = query(collection(db, "expense"), where("user_id", "==", user?.id));
-        const querySnapshot = await getDocs(q);
-        let totalDailyExpenses = 0;
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
-          totalDailyExpenses += expensesArray.reduce((sum, item) => sum + Number(item.amount), 0);
-        });
+      const expenseDocRef = doc(db, "expense", user?.id || '');
+      const expenseDocSnap = await getDoc(expenseDocRef);
+      if (expenseDocSnap.exists()) {
+        const data = expenseDocSnap.data();
+        const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
+        const totalDailyExpenses = expensesArray.reduce((sum, item) => sum + Number(item.amount), 0);
         setDailyExpenses(totalDailyExpenses);
-      } catch (error) {
-        console.error('Error fetching daily expenses:', error);
+      } else {
         setDailyExpenses(0);
       }
-
       // Fetch latest workout
       try {
         const workoutLogs = await apiClient.get<WorkoutLog[]>(`/workouts/logs/?date=${today}`);
