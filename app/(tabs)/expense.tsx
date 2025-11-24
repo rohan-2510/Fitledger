@@ -57,7 +57,7 @@ export default function ExpenseScreen() {
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
-  const [monthlyBudget, setMonthlyBudget] = useState(5000);
+  const [monthlyBudget, setMonthlyBudget] = useState(0);
   const [editBudgetModalVisible, setEditBudgetModalVisible] = useState(false);
   const [newBudget, setNewBudget] = useState('');
   
@@ -110,6 +110,7 @@ export default function ExpenseScreen() {
       
       if (expenseDocSnap.exists()) {
         const data = expenseDocSnap.data();
+        setMonthlyBudget(data.monthly_budget || 0);
         const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
         // Map expenses array to include document ID for each expense
         const expensesData: ExpenseData[] = expensesArray.map((expense: any, index: number) => ({
@@ -285,18 +286,15 @@ export default function ExpenseScreen() {
       return;
     }
     try {
-      await apiClient.patch('/users/me/', { monthly_budget: parsedBudget });
+      // save to firebase db expense collection as budget
+      const expenseDocRef = doc(db, "expense", user?.id || '');
+      await updateDoc(expenseDocRef, { monthly_budget: parsedBudget });
       setMonthlyBudget(parsedBudget);
       setEditBudgetModalVisible(false);
       setNewBudget('');
-      Alert.alert('Success', 'Monthly budget updated successfully!');
       triggerDashboardRefresh();
     } catch (error: any) {
       console.error('Error saving monthly budget:', error);
-      Alert.alert(
-        'Error',
-        error.response?.data?.detail || 'Failed to update monthly budget. Please try again.'
-      );
     }
   };
 
