@@ -741,6 +741,7 @@ export default function WorkoutScreen() {
                     value={exerciseName}
                     onChangeText={handleExerciseNameChange}
                     placeholder="e.g., Running, Bench Press"
+                    placeholderTextColor={Colors.placeholder}
                     onFocus={() => {
                       if (exerciseName.length >= 2) {
                         setShowSuggestions(true);
@@ -818,6 +819,7 @@ export default function WorkoutScreen() {
                       onChangeText={handleDurationChange}
                       keyboardType="numeric"
                       placeholder="30"
+                      placeholderTextColor={Colors.placeholder}
                     />
                     {/* Show calculated calories */}
                     {calculatedCalories !== null && duration && (
@@ -847,6 +849,7 @@ export default function WorkoutScreen() {
                       onChangeText={setSets}
                       keyboardType="numeric"
                       placeholder="3"
+                      placeholderTextColor={Colors.placeholder}
                     />
                   </View>
                   <View style={styles.formGroup}>
@@ -856,6 +859,7 @@ export default function WorkoutScreen() {
                       value={reps}
                       onChangeText={setReps}
                       placeholder="8-10 or 8,8,6"
+                      placeholderTextColor={Colors.placeholder}
                     />
                   </View>
                   <View style={styles.formGroup}>
@@ -866,6 +870,7 @@ export default function WorkoutScreen() {
                       onChangeText={setWeight}
                       keyboardType="numeric"
                       placeholder="60"
+                      placeholderTextColor={Colors.placeholder}
                     />
                   </View>
                 </>

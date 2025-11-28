@@ -1,9 +1,9 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Colors } from '../constants/Colors';
 import { ThemeTokens } from '../constants/ThemeTokens';
-import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegisterScreen() {
@@ -58,6 +58,7 @@ export default function RegisterScreen() {
       <TextInput
         style={styles.input}
         placeholder="John Doe"
+        placeholderTextColor={Colors.placeholder}
         value={name}
         onChangeText={setName}
       />
@@ -66,6 +67,7 @@ export default function RegisterScreen() {
       <TextInput
         style={styles.input}
         placeholder="you@example.com"
+        placeholderTextColor={Colors.placeholder}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -76,6 +78,7 @@ export default function RegisterScreen() {
       <TextInput
         style={styles.input}
         placeholder="Create a password"
+        placeholderTextColor={Colors.placeholder}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -85,6 +88,7 @@ export default function RegisterScreen() {
       <TextInput
         style={styles.input}
         placeholder="Re-enter password"
+        placeholderTextColor={Colors.placeholder}
         secureTextEntry
         value={confirmPassword}
         onChangeText={setConfirmPassword}

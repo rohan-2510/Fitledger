@@ -15,6 +15,7 @@ export const Colors = {
   gray: '#6B7280', // gray-500
   lightGray: '#F1F5F9', // slate-100
   darkGray: '#334155', // slate-700
+  placeholder: '#94A3B8', // slate-400
 
   // Macro colors
   protein: '#6366F1', // indigo-500

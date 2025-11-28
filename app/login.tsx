@@ -1,9 +1,9 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Colors } from '../constants/Colors';
 import { ThemeTokens } from '../constants/ThemeTokens';
-import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginScreen() {
@@ -46,6 +46,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder="you@example.com"
+        placeholderTextColor={Colors.placeholder}
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -56,6 +57,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder="••••••••"
+        placeholderTextColor={Colors.placeholder}
         secureTextEntry
         value={password}
         onChangeText={setPassword}

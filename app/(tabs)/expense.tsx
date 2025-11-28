@@ -538,6 +538,7 @@ export default function ExpenseScreen() {
                   value={description}
                   onChangeText={setDescription}
                   placeholder="e.g., Gym Membership, Protein Powder"
+                  placeholderTextColor={Colors.placeholder}
                 />
               </View>
 
@@ -549,6 +550,7 @@ export default function ExpenseScreen() {
                   onChangeText={setAmount}
                   keyboardType="numeric"
                   placeholder="500"
+                  placeholderTextColor={Colors.placeholder}
                 />
               </View>
 
@@ -584,14 +586,6 @@ export default function ExpenseScreen() {
                   </ScrollView>
                 </View>
               </View>
-
-              {/* <View style={styles.formGroup}>
-                <Text style={styles.label}>Date</Text>
-                <TouchableOpacity onPress={() => console.log('Open date picker')} style={styles.datePickerButton}>
-                  <MaterialIcons name="calendar-today" size={20} color={Colors.text} />
-                  <Text style={styles.datePickerText}>{expenseDate.toLocaleDateString()}</Text>
-                </TouchableOpacity>
-              </View> */}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -635,6 +629,7 @@ export default function ExpenseScreen() {
                   onChangeText={setNewBudget}
                   keyboardType="numeric"
                   placeholder="e.g., 7500"
+                  placeholderTextColor={Colors.placeholder}
                 />
               </View>
             </View>
