@@ -1,15 +1,14 @@
-import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
-import apiClient from '../app/api/apiClient';
-import * as SecureStore from 'expo-secure-store';
-import { auth, db } from '../utils/firebase'; // Import Firebase auth and db
-import { 
+import { calcMacros } from '@/hooks/use-calc-macros';
+import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { calcMacros } from '@/hooks/use-calc-macros';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import apiClient from '../app/api/apiClient';
+import { auth, db } from '../utils/firebase'; // Import Firebase auth and db
 
 export type User = {
   id?: string; // Change to string for Firebase UID
@@ -227,6 +226,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       if (details.gender) updateData.gender = details.gender;
+
+      // Recalculate macros if relevant data has changed
+      const hasRelevantChange = details.height || details.weight || details.age || details.activityLevel || details.goal || details.gender;
+
+      if (hasRelevantChange) {
+        console.log('[AuthContext] Profile details changed, recalculating macros...');
+        const userDataForCalc = {
+          ...user,
+          ...updateData
+        };
+        const newMacros = calcMacros(userDataForCalc);
+        updateData.macros = newMacros;
+      }
 
       // Update Firestore document directly
       const userDocRef = doc(db, "users", firebaseUser.uid);

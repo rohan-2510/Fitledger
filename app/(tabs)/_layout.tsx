@@ -1,8 +1,8 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import { View, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { ProfileModal } from '../../components/ProfileModal';
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { ProfileModal } from '../../components/ProfileModal';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
 
@@ -93,15 +93,6 @@ export default function TabLayout() {
             ),
           }}
         />
-        {/* <Tabs.Screen
-          name="settings"
-          options={{
-            title: 'Settings',
-            tabBarIcon: ({ color }) => (
-              <MaterialIcons name="settings" size={24} color={color} />
-            ),
-          }}
-        /> */}
       </Tabs>
       <ProfileModal
         key={isLoggedIn ? `profile-modal-${user?.id}` : 'profile-modal-logged-out'}
