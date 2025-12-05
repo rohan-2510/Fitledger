@@ -150,7 +150,14 @@ export default function DashboardScreen() {
       if (expenseDocSnap.exists()) {
         const data = expenseDocSnap.data();
         const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
-        const totalDailyExpenses = expensesArray.reduce((sum, item) => sum + Number(item.amount), 0);
+
+        // Filter expenses for today
+        const todayExpenses = expensesArray.filter((expense: any) => {
+          if (!expense.date) return false;
+          return expense.date === today;
+        });
+
+        const totalDailyExpenses = todayExpenses.reduce((sum, item) => sum + Number(item.amount), 0);
         setDailyExpenses(totalDailyExpenses);
       } else {
         setDailyExpenses(0);
