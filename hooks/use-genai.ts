@@ -1,6 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
 import { useCallback, useState } from 'react';
-import appJson from '../app.json';
 
 export interface NutritionData {
   calories: number;
@@ -18,7 +17,7 @@ interface UseGenAIResult {
 }
 
 const genAI = new GoogleGenAI({
-  apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+  apiKey: process.env.EXPO_PUBLIC_GEMINI_API_KEY || '',
 });
 
 export const useGenAI = (): UseGenAIResult => {
@@ -28,6 +27,12 @@ export const useGenAI = (): UseGenAIResult => {
   const generateNutrition = useCallback(async (foodQuery: string): Promise<NutritionData | null> => {
     if (!foodQuery.trim()) {
       setError('Please provide a food query');
+      return null;
+    }
+
+    // Check if API key is available
+    if (!process.env.EXPO_PUBLIC_GEMINI_API_KEY) {
+      setError('AI service not configured. Please contact support.');
       return null;
     }
 

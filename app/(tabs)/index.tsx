@@ -275,7 +275,7 @@ export default function DashboardScreen() {
           <View style={styles.statRow}>
             <View>
               <Text style={styles.statValue}>₹{dailyExpenses.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Expenses</Text>
+              <Text style={styles.statLabel}>Today's Expenses</Text>
             </View>
             <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]} >
               <MaterialIcons name="attach-money" size={24} color={Colors.success} />

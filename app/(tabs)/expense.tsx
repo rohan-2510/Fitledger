@@ -53,6 +53,7 @@ export default function ExpenseScreen() {
   const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth();
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [expenses, setExpenses] = useState<ExpenseData[]>([]);
+  const [allExpenses, setAllExpenses] = useState<ExpenseData[]>([]); // Add this line
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
@@ -137,6 +138,13 @@ export default function ExpenseScreen() {
         setMonthlyBudget(data.monthly_budget || 0);
         const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
         
+        // Store all expenses
+        const allExpensesData: ExpenseData[] = expensesArray.map((expense: any, index: number) => ({
+          id: expense.id || `${user.id}_${index}`,
+          ...expense,
+        }));
+        setAllExpenses(allExpensesData);
+        
         // Filter expenses for selected date
         const selectedDateStr = selectedDate.toISOString().split('T')[0];
         const filteredExpenses = expensesArray.filter((expense: any) => {
@@ -153,11 +161,13 @@ export default function ExpenseScreen() {
         setExpenses(expensesData);
       } else {
         setExpenses([]);
+        setAllExpenses([]);
       }
     } catch (error: any) {
       console.error('Error loading expenses:', error);
       Alert.alert('Error', 'Failed to load expenses. Please try again.');
       setExpenses([]);
+      setAllExpenses([]);
     } finally {
       setLoading(false);
     }
@@ -235,6 +245,19 @@ export default function ExpenseScreen() {
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
   const budgetUsed = monthlyBudget > 0 ? (totalExpenses / monthlyBudget) * 100 : 0;
+
+  // Add monthly expense calculations
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const monthlyExpenses = allExpenses.filter((expense) => {
+    if (!expense.date) return false;
+    const expenseDate = new Date(expense.date);
+    return expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear;
+  });
+
+  const totalMonthlyExpenses = monthlyExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+  const monthlyBudgetUsed = monthlyBudget > 0 ? (totalMonthlyExpenses / monthlyBudget) * 100 : 0;
 
   const filteredExpenses = expenses.filter((expense) => {
     console.log("expense---------------------------------",expense)
@@ -371,7 +394,7 @@ export default function ExpenseScreen() {
           
           <View style={styles.progressContainer}>
             <View style={styles.progressLabels}>
-              <Text style={styles.progressText}>Spent: ₹{totalExpenses.toLocaleString()}</Text>
+              <Text style={styles.progressText}>Spent today: ₹{totalExpenses.toLocaleString()}</Text>
               <Text style={styles.progressText}>
                 {budgetUsed.toFixed(1)}% of budget
               </Text>
@@ -383,6 +406,27 @@ export default function ExpenseScreen() {
                   { 
                     width: `${Math.min(budgetUsed, 100)}%`,
                     backgroundColor: budgetUsed > 80 ? Colors.error : Colors.success
+                  }
+                ]} 
+              />
+            </View>
+          </View>
+          
+          {/* Add Monthly Progress Bar */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressLabels}>
+              <Text style={styles.progressText}>Spent this month: ₹{totalMonthlyExpenses.toLocaleString()}</Text>
+              <Text style={styles.progressText}>
+                {monthlyBudgetUsed.toFixed(1)}% of budget
+              </Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { 
+                    width: `${Math.min(monthlyBudgetUsed, 100)}%`,
+                    backgroundColor: monthlyBudgetUsed > 80 ? Colors.error : Colors.success
                   }
                 ]} 
               />
