@@ -75,6 +75,7 @@ export default function ExpenseScreen() {
       setSelectedDate(new Date());
       setSelectedCategoryFilter('all');
       setExpenses([]);
+      setAllExpenses([]);
       setDescription('');
       setAmount('');
       setSelectedCategory(null);
