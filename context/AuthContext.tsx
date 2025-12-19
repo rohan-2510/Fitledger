@@ -7,7 +7,6 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import apiClient from '../app/api/apiClient';
 import { auth, db } from '../utils/firebase'; // Import Firebase auth and db
 
 export type User = {
@@ -61,20 +60,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
 
   useEffect(() => {
+    console.log('[AuthContext] Setting up auth state listener...');
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('[AuthContext] Auth state changed. User:', firebaseUser ? firebaseUser.uid : null);
       if (firebaseUser) {
         console.log('[AuthContext] Firebase user logged in:', firebaseUser.uid);
+        console.log('[AuthContext] User email:', firebaseUser.email);
         // Fetch user data from Firestore
         await loadUserProfile(firebaseUser.uid);
       } else {
         console.log('[AuthContext] No Firebase user logged in.');
         setUser(null);
         setProfile(null);
-        await apiClient.clearTokens(); // Clear any stale tokens
       }
       setIsLoading(false);
     });
-    return () => unsubscribe();
+    return () => {
+      console.log('[AuthContext] Cleaning up auth state listener...');
+      unsubscribe();
+    };
   }, []);
 
   const loadUserProfile = async (uid: string) => {
@@ -196,7 +200,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await firebaseSignOut(auth);
       setUser(null);
       setProfile(null);
-      await apiClient.clearTokens(); // Clear any remaining local tokens
       console.log('AuthContext: User and profile state cleared.');
       triggerDashboardRefresh();
     } catch (error) {

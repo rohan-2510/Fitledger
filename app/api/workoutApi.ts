@@ -1,8 +1,5 @@
-import Constants from 'expo-constants';
 
-// API Ninjas API Key - Get your free key from https://api-ninjas.com/
-// Store in app.json extra section or environment variable
-const API_NINJAS_KEY = Constants.expoConfig?.extra?.apiNinjasKey || 'YOUR_API_KEY_HERE';
+const API_NINJAS_KEY = process.env.EXPO_PUBLIC_API_NINJAS_KEY || 'YOUR_API_KEY_HERE';
 
 const EXERCISE_API_BASE = 'https://api.api-ninjas.com/v1';
 

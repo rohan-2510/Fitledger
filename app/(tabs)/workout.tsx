@@ -24,6 +24,25 @@ import { ThemeTokens } from '../../constants/ThemeTokens';
 import { useAuth } from '../../context/AuthContext';
 import { calculateCaloriesBurned, searchExercises } from '../api/workoutApi';
 
+// Debounce hook for API calls
+const useDebounce = (callback: Function, delay: number) => {
+  const timeoutRef = React.useRef<number | null>(null);
+
+  const debouncedCallback = React.useCallback(
+    (...args: any[]) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    },
+    [callback, delay]
+  );
+
+  return debouncedCallback;
+};
+
 interface WorkoutLog {
   id: string;
   exercise: string;
@@ -278,6 +297,19 @@ export default function WorkoutScreen() {
     setCalculatedCalories(null);
   };
 
+  // Debounced search function
+  const debouncedSearchExercises = useDebounce(async (text: string, searchType: 'cardio' | 'strength' | 'all') => {
+    try {
+      const suggestions = await searchExercises(text, searchType);
+      setExerciseSuggestions(suggestions);
+    } catch (error) {
+      console.error('Error searching exercises:', error);
+      setExerciseSuggestions([]);
+    } finally {
+      setSearchingExercises(false);
+    }
+  }, 2000);
+
   // Search exercises when user types
   const handleExerciseNameChange = async (text: string) => {
     setExerciseName(text);
@@ -286,16 +318,8 @@ export default function WorkoutScreen() {
     if (text.length >= 2) {
       setSearchingExercises(true);
       setShowSuggestions(true);
-      try {
-        const searchType = workoutType === 'cardiovascular' ? 'cardio' : 'strength';
-        const suggestions = await searchExercises(text, searchType);
-        setExerciseSuggestions(suggestions);
-      } catch (error) {
-        console.error('Error searching exercises:', error);
-        setExerciseSuggestions([]);
-      } finally {
-        setSearchingExercises(false);
-      }
+      const searchType = workoutType === 'cardiovascular' ? 'cardio' : 'strength';
+      debouncedSearchExercises(text, searchType);
     } else {
       setExerciseSuggestions([]);
       setShowSuggestions(false);
@@ -876,16 +900,6 @@ export default function WorkoutScreen() {
                 </>
               )}
 
-              {/* <View style={styles.formGroup}>
-                <Text style={styles.label}>RPE (Rate of Perceived Exertion 1-10)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={rpe}
-                  onChangeText={setRpe}
-                  keyboardType="numeric"
-                  placeholder="7"
-                />
-              </View> */}
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Notes</Text>

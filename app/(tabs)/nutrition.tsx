@@ -11,7 +11,8 @@ import { ProfileImageDisplay } from '../../components/ProfileImageDisplay';
 import { ProfileModal } from '../../components/ProfileModal';
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/AuthContext';
-import { useGenAI } from '../../hooks/use-genai';
+import { useFoodSearch } from '../../hooks/use-food-search';
+
 
 interface FoodItem {
   id: string;
@@ -19,8 +20,9 @@ interface FoodItem {
   calories: number;
   protein?: number;
   carbs?: number;
-  fats?: number; // Changed from fat to fats to match backend
-  source?: 'USDA' | 'Gemini'; // Add this optional field
+  fat?: number; 
+  source?: 'USDA' | 'Gemini';
+  mealEntryId?: string; // Unique ID for the meal entry in Firestore
 }
 
 interface Meal {
@@ -36,7 +38,7 @@ type MealSection = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snacks';
 const NutritionScreen: React.FC = () => {
   const router = useRouter();
   const { user, isLoggedIn, signOut, triggerDashboardRefresh } = useAuth(); // Destructure triggerDashboardRefresh
-  const { generateNutrition, isLoading: isGenAILoading, error: genAIError } = useGenAI();
+  const { searchFoods: searchFoodsAPI, isLoading: isFoodSearchLoading, error: foodSearchError } = useFoodSearch();
   const [meals, setMeals] = useState<Meal[]>([
     { id: '1', name: 'Breakfast', foods: [] },
     { id: '2', name: 'Lunch', foods: [] },
@@ -46,6 +48,7 @@ const NutritionScreen: React.FC = () => {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [quantity, setQuantity] = useState('100');
   const [searchResults, setSearchResults] = useState<FoodItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -80,6 +83,7 @@ const NutritionScreen: React.FC = () => {
         { id: '4', name: 'Snacks', foods: [] },
       ]);
       setSearchQuery('');
+      setQuantity('100');
       setSearchResults([]);
       setSearchError('');
       setIsSearching(false);
@@ -145,8 +149,9 @@ const NutritionScreen: React.FC = () => {
               calories: meal.food.calories || 0,
               protein: meal.food.protein || 0,
               carbs: meal.food.carbs || 0,
-              fats: meal.food.fats || 0,
+              fat: meal.food.fat || 0, //changed
               source: meal.food.source,
+              mealEntryId: meal.id, // Store the unique meal entry ID
             };
             mealStructure[mealIndex].foods.push(foodItem);
           }
@@ -209,7 +214,7 @@ const NutritionScreen: React.FC = () => {
           calories: mealAcc.calories + (food.calories || 0),
           protein: mealAcc.protein + (food.protein || 0),
           carbs: mealAcc.carbs + (food.carbs || 0),
-          fat: mealAcc.fat + (food.fats || 0),
+          fat: mealAcc.fat + (food.fat || 0), //changed
         }),
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
       );
@@ -224,10 +229,11 @@ const NutritionScreen: React.FC = () => {
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
-  const searchFoods = async () => {
-    if (!searchQuery.trim()) {
+  // Search function using Hugging Face dataset
+  const performSearch = async (query: string) => {
+    if (!query.trim()) {
       setSearchResults([]);
-      setSearchError('Please enter a food item (e.g., "100g of paneer")');
+      setSearchError('');
       return;
     }
     
@@ -235,33 +241,103 @@ const NutritionScreen: React.FC = () => {
     setIsSearching(true);
     
     try {
-      console.log('Generating nutrition data with Gemini for:', searchQuery);
-      const nutritionData = await generateNutrition(searchQuery);
+      console.log('Searching food database for:', query);
+      const results = await searchFoodsAPI(query);
       
-      if (nutritionData) {
-        // Convert Gemini response to FoodItem format
-        const foodItem: FoodItem = {
-          id: `gemini_${Date.now()}`,
-          name: nutritionData.name || searchQuery,
-          calories: nutritionData.calories,
-          protein: nutritionData.protein,
-          carbs: nutritionData.carbs,
-          fats: nutritionData.fat,
-          source: 'Gemini',
-        };
-        
-        setSearchResults([foodItem]);
+      if (results && results.length > 0) {
+        setSearchResults(results);
         setSearchError('');
       } else {
-        setSearchError(genAIError || 'Failed to generate nutrition data. Please try again.');
+        setSearchError('No results found. Try a different search term.');
         setSearchResults([]);
       }
     } catch (error) {
-      console.error('Error generating nutrition data:', error);
-      setSearchError(genAIError || 'Failed to generate nutrition data. Please try again.');
+      console.error('Error searching foods:', error);
+      setSearchError(foodSearchError || 'Failed to search foods. Please try again.');
       setSearchResults([]);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const searchFoods = async () => {
+    await performSearch(searchQuery);
+  };
+
+  // Handle search query change
+  const handleSearchQueryChange = (text: string) => {
+    setSearchQuery(text);
+    if (!text.trim()) {
+      setSearchResults([]);
+      setSearchError('');
+    }
+  };
+
+  const deleteFoodFromMeal = async (mealName: string, mealEntryId: string, foodName: string) => {
+    console.log('DELETE BUTTON CLICKED!', { mealName, mealEntryId, foodName });
+    
+    if (!user?.id) {
+      Alert.alert('Error', 'Please log in to delete meals.');
+      return;
+    }
+
+    // Temporary: delete immediately without confirmation for testing
+    console.log('Starting deletion process...');
+    try {
+      if (!user?.id) {
+        console.log('ERROR: User not authenticated');
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+      
+      console.log('User ID:', user.id);
+      const selectedDateStr = selectedDate.toISOString().split('T')[0];
+      console.log('Selected date:', selectedDateStr);
+      
+      const nutritionDocRef = doc(db, "nutrition", user.id);
+      console.log('Fetching nutrition document...');
+      const nutritionDocSnap = await getDoc(nutritionDocRef);
+
+      if (nutritionDocSnap.exists()) {
+        console.log('Document exists!');
+        const data = nutritionDocSnap.data();
+        const mealsArray = Array.isArray(data.meals) ? data.meals : [];
+
+        console.log('Before delete - Total meals:', mealsArray.length);
+        console.log('Deleting meal entry with ID:', mealEntryId);
+
+        // Filter out the food item to delete using the unique meal entry ID
+        const updatedMeals = mealsArray.filter((meal: any) => {
+          const matches = meal.id === mealEntryId;
+          
+          if (matches) {
+            console.log('Found matching meal to delete:', meal);
+          }
+          
+          // Keep meals that don't match the meal entry ID
+          return !matches;
+        });
+
+        console.log('After delete - Total meals:', updatedMeals.length);
+        console.log('Updating Firestore...');
+        await updateDoc(nutritionDocRef, { meals: updatedMeals });
+        console.log('Firestore updated successfully!');
+        
+        // Reload meals to update UI
+        console.log('Reloading meals...');
+        await loadMeals();
+        console.log('Meals reloaded!');
+        
+        Alert.alert('Success', 'Food deleted successfully!');
+        triggerDashboardRefresh();
+      } else {
+        console.log('ERROR: Document does not exist');
+        Alert.alert('Error', 'No nutrition data found');
+      }
+    } catch (error: any) {
+      console.error('Error deleting food:', error);
+      console.error('Error stack:', error.stack);
+      Alert.alert('Error', 'Failed to delete food. Please try again.');
     }
   };
 
@@ -271,7 +347,10 @@ const NutritionScreen: React.FC = () => {
       return;
     }
     
-    console.log('Adding food:', food);
+    const quantityNum = parseFloat(quantity) || 100;
+    const multiplier = quantityNum / 100;
+    
+    console.log('Adding food:', food, 'with quantity:', quantityNum);
 
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -279,24 +358,17 @@ const NutritionScreen: React.FC = () => {
       const currentHour = now.getHours();
       
       let mealName = selectedSection;
-      // if (currentHour >= 5 && currentHour < 11) {
-      //   mealName = 'Breakfast';
-      // } else if (currentHour >= 11 && currentHour < 16) {
-      //   mealName = 'Lunch';
-      // } else if (currentHour >= 16 && currentHour < 21) {
-      //   mealName = 'Dinner';
-      // }
-
+      
       const mealLogData = {
         id: `${user.id}_${Date.now()}`,
         meal_name: mealName,
         food: {
           id: food.id,
-          name: food.name,
-          calories: food.calories || 0,
-          protein: food.protein || 0,
-          carbs: food.carbs || 0,
-          fats: food.fats || 0,
+          name: `${food.name} (${quantityNum}g)`,
+          calories: Math.round((food.calories || 0) * multiplier),
+          protein: Math.round((food.protein || 0) * multiplier),
+          carbs: Math.round((food.carbs || 0) * multiplier),
+          fat: Math.round((food.fat || 0) * multiplier),
           source: food.source,
         },
         date: today,
@@ -327,6 +399,7 @@ const NutritionScreen: React.FC = () => {
       
       setModalVisible(false);
       setSearchQuery('');
+      setQuantity('100');
       setSearchResults([]);
       
       // Show success message
@@ -345,7 +418,7 @@ const NutritionScreen: React.FC = () => {
         calories: acc.calories + (food.calories || 0),
         protein: acc.protein + (food.protein || 0),
         carbs: acc.carbs + (food.carbs || 0),
-        fat: acc.fat + (food.fats || 0),
+        fat: acc.fat + (food.fat || 0),//changed one at right
       }),
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );
@@ -360,12 +433,27 @@ const NutritionScreen: React.FC = () => {
         
         {item.foods.length > 0 ? (
           <View style={styles.mealItems}>
-            {item.foods.map((food, index) => (
-              <View key={`food-${food.id}-${index}`} style={styles.foodItem}>
-                <Text>{food.name}</Text>
-                <Text>{food.calories} cal</Text>
-              </View>
-            ))}
+            {item.foods.map((food, index) => {
+              console.log('Rendering food:', { name: food.name, id: food.id, mealEntryId: food.mealEntryId });
+              return (
+                <View key={`food-${food.id}-${index}`} style={styles.foodItem}>
+                  <View style={styles.foodItemInfo}>
+                    <Text style={styles.foodItemName}>{food.name}</Text>
+                    <Text style={styles.foodItemCalories}>{food.calories} cal</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => {
+                      console.log('TouchableOpacity pressed!');
+                      deleteFoodFromMeal(item.name, food.mealEntryId || food.id, food.name);
+                    }}
+                    style={styles.deleteButton}
+                    activeOpacity={0.6}
+                  >
+                    <MaterialIcons name="delete" size={20} color={Colors.error} />
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
         ) : (
           <Text style={styles.noFoodsText}>No foods added yet</Text>
@@ -534,31 +622,42 @@ const NutritionScreen: React.FC = () => {
                   />
                 ))}
               </View>
+              <View style={styles.quantityContainer}>
+                <Text style={styles.quantityLabel}>Quantity (grams):</Text>
+                <TextInput
+                  style={styles.quantityInput}
+                  placeholder="100"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                  keyboardType="numeric"
+                  placeholderTextColor={Colors.gray}
+                />
+              </View>
               <View style={styles.searchContainer}>
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Enter food item (e.g.1 cup rice)"
+                  placeholder="Enter food item (e.g. rice, chicken)"
                   value={searchQuery}
-                  onChangeText={setSearchQuery}
+                  onChangeText={handleSearchQueryChange}
                   onSubmitEditing={searchFoods}
                   placeholderTextColor={Colors.gray}
                 />
                 <Button
-                  title={isSearching || isGenAILoading ? 'Adding...' : 'Add Food'}
+                  title={isSearching || isFoodSearchLoading ? 'Searching...' : 'Search'}
                   onPress={searchFoods}
                   variant="primary"
                   style={styles.searchButton}
-                  disabled={isSearching || isGenAILoading}
+                  disabled={isSearching || isFoodSearchLoading}
                 />
               </View>
               
-              {searchError || genAIError ? (
-                <Text style={styles.errorText}>{searchError || genAIError}</Text>
+              {searchError || foodSearchError ? (
+                <Text style={styles.errorText}>{searchError || foodSearchError}</Text>
               ) : null}
               
-              {isSearching || isGenAILoading ? (
+              {isSearching || isFoodSearchLoading ? (
                 <Text style={styles.loadingText}>
-                  Generating nutrition data with AI...
+                  Getting food macros...
                 </Text>
               ) : null}
               
@@ -576,15 +675,16 @@ const NutritionScreen: React.FC = () => {
                     <Text style={styles.foodItemCalories}>{item.calories} cal</Text>
                   </TouchableOpacity>
                 ))}
+                <Card.Actions style={styles.modalActions}>
+                  <Button 
+                    title="Cancel" 
+                    onPress={() => setModalVisible(false)} 
+                    variant="outline"
+                  />
+                </Card.Actions>
               </ScrollView>
             </Card.Content>
-            <Card.Actions style={styles.modalActions}>
-              <Button 
-                title="Cancel" 
-                onPress={() => setModalVisible(false)} 
-                variant="outline"
-              />
-            </Card.Actions>
+            
           </Card>
         </View>
       </Modal>
@@ -785,17 +885,30 @@ const styles = StyleSheet.create({
   foodItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  foodItemInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   foodItemName: {
     fontSize: 14,
     color: Colors.text,
+    flex: 1,
   },
   foodItemCalories: {
     fontSize: 14,
     color: Colors.gray,
+    marginLeft: 8,
+  },
+  deleteButton: {
+    padding: 4,
   },
   noFoodsText: {
     color: Colors.gray,
@@ -838,6 +951,23 @@ const styles = StyleSheet.create({
   modalActions: {
     justifyContent: 'flex-end',
     padding: 16,
+  },
+  quantityContainer: {
+    marginBottom: 16,
+  },
+  quantityLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.text,
+    marginBottom: 8,
+  },
+  quantityInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: 'white',
+    fontSize: 16,
   },
   searchContainer: {
     flexDirection: 'row',

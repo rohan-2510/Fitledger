@@ -19,3 +19,6 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Enable persistence for Firebase Auth (web uses localStorage by default)
+auth.setPersistence('local').catch(console.error);
