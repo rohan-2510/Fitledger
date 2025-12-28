@@ -24,7 +24,6 @@ import { ThemeTokens } from '../../constants/ThemeTokens';
 import { useAuth } from '../../context/AuthContext';
 import { calculateCaloriesBurned, searchExercises } from '../api/workoutApi';
 
-// Debounce hook for API calls
 const useDebounce = (callback: Function, delay: number) => {
   const timeoutRef = React.useRef<number | null>(null);
 
@@ -53,7 +52,7 @@ interface WorkoutLog {
   rpe?: number;
   notes?: string;
   timestamp: string;
-  calculated_calories?: number; // Store calculated calories
+  calculated_calories?: number;
 }
 
 interface ExerciseSuggestion {

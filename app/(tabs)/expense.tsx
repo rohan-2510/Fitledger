@@ -344,13 +344,26 @@ export default function ExpenseScreen() {
     try {
       // save to firebase db expense collection as budget
       const expenseDocRef = doc(db, "expense", user?.id || '');
-      await updateDoc(expenseDocRef, { monthly_budget: parsedBudget });
+      const expenseDocSnap = await getDoc(expenseDocRef);
+      
+      if (expenseDocSnap.exists()) {
+        // If document exists, update it
+        await updateDoc(expenseDocRef, { monthly_budget: parsedBudget });
+      } else {
+        // If document doesn't exist, create it with the budget
+        await setDoc(expenseDocRef, {
+          monthly_budget: parsedBudget,
+          expenses: []
+        });
+      }
+      
       setMonthlyBudget(parsedBudget);
       setEditBudgetModalVisible(false);
       setNewBudget('');
       triggerDashboardRefresh();
     } catch (error: any) {
       console.error('Error saving monthly budget:', error);
+      Alert.alert('Error', 'Failed to save budget. Please try again.');
     }
   };
 

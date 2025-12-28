@@ -1,4 +1,3 @@
-// app/(tabs)/nutrition.tsx
 import { db } from '@/utils/firebase';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
