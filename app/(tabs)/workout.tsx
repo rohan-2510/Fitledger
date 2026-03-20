@@ -45,6 +45,7 @@ const useDebounce = (callback: Function, delay: number) => {
 interface WorkoutLog {
   id: string;
   exercise: string;
+  type?: 'cardiovascular' | 'strength';
   sets?: number;
   reps?: string;
   weight?: number;
@@ -402,7 +403,10 @@ export default function WorkoutScreen() {
         id: `${user.id}_${Date.now()}`,
         exercise: exerciseName.trim(),
         timestamp: selectedDate.toISOString(),
+        type: workoutType, // 'cardiovascular' or 'strength'
       };
+
+      const userWeight = user?.weight_kg || 70;
 
       // Calculate and store calories for cardio exercises
       if (workoutType === 'cardiovascular') {
@@ -410,13 +414,35 @@ export default function WorkoutScreen() {
         workoutData.sets = 1;
 
         // Calculate calories using API
-        const userWeight = user?.weight_kg || 70;
         const calories = await calculateCaloriesBurned(exerciseName.trim(), parseFloat(duration), userWeight);
         workoutData.calculated_calories = calories;
       } else {
         workoutData.sets = parseInt(sets) || 1;
         workoutData.reps = reps.trim();
         if (weight) workoutData.weight = parseFloat(weight);
+
+        // Add duration for strength training
+        if (duration) {
+          workoutData.duration_min = parseFloat(duration);
+        }
+
+        // Calculate calories for strength: MET-based formula
+        // Strength training MET ≈ 3.5 (light) to 6.0 (vigorous)
+        const durationMin = parseFloat(duration) || 0;
+        if (durationMin > 0) {
+          const met = (parseFloat(weight) || 0) > 50 ? 6.0 : 5.0; // Higher MET for heavier weights
+          const strengthCalories = Math.round((met * userWeight * durationMin) / 60);
+          workoutData.calculated_calories = strengthCalories;
+        } else {
+          // Estimate from sets × reps if no duration given
+          const setsNum = parseInt(sets) || 1;
+          const repsNum = parseInt(reps) || 8;
+          const estimatedMin = Math.round((setsNum * repsNum * 3) / 60); // ~3 sec per rep
+          const restMin = setsNum * 1.5; // ~1.5 min rest per set
+          const totalMin = estimatedMin + restMin;
+          workoutData.duration_min = Math.round(totalMin);
+          workoutData.calculated_calories = Math.round((5.0 * userWeight * totalMin) / 60);
+        }
       }
 
       if (rpe) workoutData.rpe = parseFloat(rpe);
@@ -461,41 +487,29 @@ export default function WorkoutScreen() {
       return;
     }
 
-    Alert.alert(
-      'Delete Workout',
-      'Are you sure you want to delete this workout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!user?.id) return;
-              const workoutDocRef = doc(db, "workout", user.id);
-              const workoutDocSnap = await getDoc(workoutDocRef);
+    try {
+      if (!user?.id) return;
+      const workoutDocRef = doc(db, "workout", user.id);
+      const workoutDocSnap = await getDoc(workoutDocRef);
 
-              if (workoutDocSnap.exists()) {
-                const prevData = workoutDocSnap.data();
-                const workoutsArray = Array.isArray(prevData.workouts) ? prevData.workouts : [];
-                // Filter out the workout with the matching id
-                const updatedWorkouts = workoutsArray.filter((workout: any) => workout.id !== id);
-                await updateDoc(workoutDocRef, { workouts: updatedWorkouts });
-                await loadAllWorkouts(); // Reload all workouts (will trigger filtered update)
-              }
-            } catch (error: any) {
-              console.error('Error deleting workout:', error);
-              Alert.alert('Error', 'Failed to delete workout.');
-            }
-          },
-        },
-      ]
-    );
+      if (workoutDocSnap.exists()) {
+        const prevData = workoutDocSnap.data();
+        const workoutsArray = Array.isArray(prevData.workouts) ? prevData.workouts : [];
+        // Filter out the workout with the matching id
+        const updatedWorkouts = workoutsArray.filter((workout: any) => workout.id !== id);
+        await updateDoc(workoutDocRef, { workouts: updatedWorkouts });
+        await loadAllWorkouts(); // Reload all workouts (will trigger filtered update)
+      }
+    } catch (error: any) {
+      console.error('Error deleting workout:', error);
+      Alert.alert('Error', 'Failed to delete workout.');
+    }
   };
 
   // Calculate totals with dynamic calorie calculation
-  const cardioWorkouts = workouts.filter((w) => w.duration_min);
-  const strengthWorkouts = workouts.filter((w) => w.duration_min === null || w.duration_min === undefined);
+  // Use 'type' field if available, fall back to old logic for legacy data
+  const cardioWorkouts = workouts.filter((w) => w.type === 'cardiovascular' || (!w.type && w.duration_min && !w.sets));
+  const strengthWorkouts = workouts.filter((w) => w.type === 'strength' || (!w.type && (w.sets || (!w.duration_min))));
 
   const dailyCardioMinutes = cardioWorkouts.reduce((sum, w) => sum + (w.duration_min || 0), 0);
 
@@ -609,12 +623,12 @@ export default function WorkoutScreen() {
         <View style={styles.tableHeader}>
           <Text style={styles.tableHeaderText}>Goal</Text>
           <Text style={styles.tableHeaderText}>Minutes</Text>
-          <Text style={styles.tableHeaderText}>Calories Burned</Text>
+          {/* <Text style={styles.tableHeaderText}>Calories Burned</Text> */}
         </View>
         <View style={styles.tableRow}>
           <Text style={styles.tableLabel}>Daily Total</Text>
           <Text style={styles.tableValue}>{dailyCardioMinutes}</Text>
-          <Text style={styles.tableValue}>{dailyCardioCalories}</Text>
+          {/* <Text style={styles.tableValue}>{dailyCardioCalories}</Text> */}
         </View>
       </View>
 
@@ -641,31 +655,32 @@ export default function WorkoutScreen() {
 
       {/* Table Header */}
       <View style={styles.strengthTableHeader}>
-        {/* <Text style={styles.strengthHeaderText}>Exercise</Text> */}
         <Text style={styles.strengthHeaderText}>Sets</Text>
-        <Text style={styles.strengthHeaderText}>Reps/Set</Text>
-        <Text style={styles.strengthHeaderText}>Weight/Set</Text>
-        {/* <Text style={styles.strengthHeaderText}></Text> */}
+        <Text style={styles.strengthHeaderText}>Reps</Text>
+        <Text style={styles.strengthHeaderText}>Weight</Text>
+        <Text style={styles.strengthHeaderText}>Duration</Text>
+        <Text style={styles.strengthHeaderText}>Cal</Text>
       </View>
 
       {/* Logged Exercises */}
       {strengthWorkouts.length > 0 ? (
         strengthWorkouts.map((workout) => (
-          <View style={{display:'flex', flexDirection:'row', alignItems:'center', justifyContent:'space-between', width:'100%'}}>
-          <View key={workout.id} style={styles.strengthRow}>
-          <View style={{display:'flex', flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom: ThemeTokens.spacing.sm}}>
-            <Text style={styles.strengthValue}>{workout.sets || '-'}</Text>
-            <Text style={styles.strengthValue}>{workout.reps || '-'}</Text>
-            <Text style={styles.strengthValue}>{workout.weight ? `${workout.weight} kg` : '-'}</Text>
+          <View key={workout.id} style={styles.strengthContentText}>
+            <View style={styles.strengthRow}>
+              <View style={{display:'flex', flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom: ThemeTokens.spacing.sm}}>
+                <Text style={styles.strengthValue}>{workout.sets || '-'}</Text>
+                <Text style={styles.strengthValue}>{workout.reps || '-'}</Text>
+                <Text style={styles.strengthValue}>{workout.weight ? `${workout.weight}kg` : '-'}</Text>
+                <Text style={styles.strengthValue}>{workout.duration_min ? `${workout.duration_min}m` : '-'}</Text>
+                <Text style={[styles.strengthValue, { color: Colors.error, fontWeight: '700' }]}>{workout.calculated_calories || '-'}</Text>
+              </View>
+              <View style={styles.strengthExerciseInfo}>
+                <Text style={styles.strengthExerciseName}>{workout.exercise.substring(0, 35)}...</Text>
+                <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
+                  <MaterialIcons name="delete" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
             </View>
-            <View style={styles.strengthExerciseInfo}>
-              <Text style={styles.strengthExerciseName}>{workout.exercise.substring(0, 35)}...</Text>
-              <TouchableOpacity onPress={() => deleteWorkout(workout.id)} style={styles.deleteButton}>
-                <MaterialIcons name="delete" size={18} color={Colors.error} />
-              </TouchableOpacity>
-            </View>
-            
-          </View>
           </View>
         ))
       ) : (
@@ -845,7 +860,7 @@ export default function WorkoutScreen() {
                       placeholderTextColor={Colors.placeholder}
                     />
                     {/* Show calculated calories */}
-                    {calculatedCalories !== null && duration && (
+                    {/* {calculatedCalories !== null && duration && (
                       <View style={styles.caloriesPreview}>
                         <MaterialIcons name="local-fire-department" size={16} color={Colors.primary} />
                         <Text style={styles.caloriesPreviewText}>
@@ -859,7 +874,7 @@ export default function WorkoutScreen() {
                         <ActivityIndicator size="small" color={Colors.primary} />
                         <Text style={styles.caloriesPreviewText}>Calculating calories...</Text>
                       </View>
-                    )}
+                    )} */}
                   </View>
                 </>
               ) : (
@@ -893,6 +908,17 @@ export default function WorkoutScreen() {
                       onChangeText={setWeight}
                       keyboardType="numeric"
                       placeholder="60"
+                      placeholderTextColor={Colors.placeholder}
+                    />
+                  </View>
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Duration (minutes)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={duration}
+                      onChangeText={setDuration}
+                      keyboardType="numeric"
+                      placeholder="e.g. 15"
                       placeholderTextColor={Colors.placeholder}
                     />
                   </View>
@@ -967,23 +993,26 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: Colors.primary,
     padding: ThemeTokens.spacing.lg,
-    paddingTop: ThemeTokens.spacing.xl * 2,
-    borderBottomLeftRadius: ThemeTokens.radius.xl,
-    borderBottomRightRadius: ThemeTokens.radius.xl,
+    paddingTop: ThemeTokens.spacing.xl * 2 + 8,
+    paddingBottom: ThemeTokens.spacing.xl + 4,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   title: {
     fontSize: ThemeTokens.typography.headline,
     fontWeight: '800',
     color: 'white',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: ThemeTokens.spacing.xs,
   },
   dateCard: {
     margin: ThemeTokens.spacing.lg,
     marginTop: ThemeTokens.spacing.md,
+    borderRadius: 14,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -992,24 +1021,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dateLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: ThemeTokens.spacing.sm,
   },
   dateControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ThemeTokens.spacing.sm,
+    gap: 6,
   },
   dateButton: {
     padding: ThemeTokens.spacing.xs,
+    backgroundColor: Colors.lightGray,
+    borderRadius: 8,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     minWidth: 200,
+    textAlign: 'center',
   },
   todayButton: {
     backgroundColor: Colors.primary,
@@ -1027,6 +1059,7 @@ const styles = StyleSheet.create({
     margin: ThemeTokens.spacing.lg,
     marginTop: 0,
     marginBottom: ThemeTokens.spacing.md,
+    borderRadius: 14,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1048,12 +1081,15 @@ const styles = StyleSheet.create({
     gap: ThemeTokens.spacing.xs,
   },
   actionLink: {
-    padding: ThemeTokens.spacing.xs,
+    paddingHorizontal: ThemeTokens.spacing.sm,
+    paddingVertical: ThemeTokens.spacing.xs,
+    backgroundColor: Colors.primary + '10',
+    borderRadius: 8,
   },
   actionLinkText: {
     color: Colors.primary,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   actionSeparator: {
     color: Colors.gray,
@@ -1108,20 +1144,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: ThemeTokens.spacing.md,
     backgroundColor: Colors.lightGray,
-    borderRadius: ThemeTokens.radius.md,
-    marginBottom: ThemeTokens.spacing.xs,
+    borderRadius: 12,
+    marginBottom: ThemeTokens.spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.success,
   },
   exerciseInfo: {
     flex: 1,
   },
   exerciseName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 4,
   },
   exerciseDetails: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.gray,
   },
   strengthTableHeader: {
@@ -1134,6 +1172,13 @@ const styles = StyleSheet.create({
   strengthHeaderText: {
     flex: 1,
     color: 'white',
+    fontWeight: '600',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  strengthContentText: {
+    flex: 1,
+    color: 'black',
     fontWeight: '600',
     fontSize: 12,
     textAlign: 'center',
@@ -1181,10 +1226,11 @@ const styles = StyleSheet.create({
     margin: ThemeTokens.spacing.lg,
     marginTop: 0,
     marginBottom: ThemeTokens.spacing.xl,
+    borderRadius: 14,
   },
   summaryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: ThemeTokens.spacing.md,
   },
@@ -1194,16 +1240,23 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     alignItems: 'center',
+    backgroundColor: Colors.lightGray,
+    paddingVertical: ThemeTokens.spacing.md,
+    paddingHorizontal: ThemeTokens.spacing.lg,
+    borderRadius: 12,
+    minWidth: 90,
   },
   summaryValue: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: Colors.primary,
     marginBottom: ThemeTokens.spacing.xs,
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.gray,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,

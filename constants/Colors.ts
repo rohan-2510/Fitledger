@@ -18,9 +18,9 @@ export const Colors = {
   placeholder: '#94A3B8', // slate-400
 
   // Macro colors
-  protein: '#6366F1', // indigo-500
+  protein: '#16A34A', // green
   carbs: '#F59E0B',
-  fat: '#16A34A',
+  fat: '#EF4444', // red
 
   // UI specific
   cardHighlight: '#F8FAFC',

@@ -23,7 +23,17 @@ export type User = {
   activity_level?: string;
   profile_image_url?: string;
   gender?: string;
-  macros?: { calories: number; protein: number; carbs: number; fat: number; };
+  macros?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    bmi: number;
+    bmiCategory: string;
+    bmr: number;
+    tdee: number;
+    recommendedExerciseMin: number;
+  };
   monthly_budget?: number;
 };
 
@@ -90,12 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = userDoc.data();
         const isProfileComplete = !!(userData.height_cm && userData.weight_kg && userData.age && userData.gender);
         console.log("---------------------------------",userData)
-        //check if macros are calculated or else calc and store in db
+        // Always recalculate macros to ensure BMI and new fields are up to date
         let macros;
-        if(userData?.macros){
-          macros = userData?.macros;
-        }else{
-          macros = calcMacros(userData)
+        if (userData?.macros?.bmi !== undefined) {
+          // Macros already have BMI fields, use stored values
+          macros = userData.macros;
+        } else {
+          // Calculate fresh (or recalculate to add new fields like BMI)
+          macros = calcMacros(userData);
           await updateDoc(userDocRef, { macros });
         }
         setUser({
@@ -113,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           profile_image_url: userData.profile_image_url,
           gender: userData.gender,
           // Ensure macros object has default values if null/undefined
-          macros: macros || { calories: 0, protein: 0, carbs: 0, fat: 0 }, 
+          macros: macros || { calories: 0, protein: 0, carbs: 0, fat: 0, bmi: 0, bmiCategory: 'Unknown', bmr: 0, tdee: 0, recommendedExerciseMin: 30 }, 
           monthly_budget: userData.monthly_budget, 
         });
         setProfile({

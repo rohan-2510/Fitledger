@@ -568,11 +568,6 @@ const NutritionScreen: React.FC = () => {
               <TouchableOpacity onPress={() => changeDate(1)} style={styles.dateButton}>
                 <MaterialIcons name="chevron-right" size={24} color={Colors.primary} />
               </TouchableOpacity>
-              {/* {!isSameDay(selectedDate, new Date()) && (
-                <TouchableOpacity onPress={() => setSelectedDate(new Date())} style={styles.todayButton}>
-                  <Text style={styles.todayButtonText}>Today</Text>
-                </TouchableOpacity>
-              )} */}
             </View>
           </View>
         </Card>
@@ -716,19 +711,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: 55,
+    paddingBottom: 28,
     backgroundColor: Colors.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: 'white',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
   },
   profileImageContainer: {
@@ -747,10 +744,14 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     margin: 20,
-    marginTop: 10,
+    marginTop: 14,
     padding: 20,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: 16,
+    elevation: 3,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -760,7 +761,7 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
   },
   addButton: {
@@ -770,31 +771,31 @@ const styles = StyleSheet.create({
   caloriesContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   caloriesValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontSize: 36,
+    fontWeight: '800',
+    color: Colors.primary,
     marginRight: 8,
   },
   caloriesLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.gray,
   },
   progressBarContainer: {
     marginBottom: 20,
   },
   progressBar: {
-    height: 8,
+    height: 10,
     backgroundColor: Colors.lightGray,
-    borderRadius: 4,
+    borderRadius: 5,
     marginBottom: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
   progressText: {
     fontSize: 12,
@@ -835,16 +836,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: Colors.text,
   },
   seeAllText: {
     color: Colors.primary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   mealList: {
     paddingHorizontal: 20,
@@ -852,10 +853,16 @@ const styles = StyleSheet.create({
   },
   mealCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
   },
   mealHeader: {
     flexDirection: 'row',
@@ -864,8 +871,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   mealName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: Colors.text,
   },
   mealTime: {
@@ -874,9 +881,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   mealCalories: {
-    fontSize: 14,
-    color: Colors.gray,
-    fontWeight: '500',
+    fontSize: 15,
+    color: Colors.primary,
+    fontWeight: '700',
   },
   mealItems: {
     marginTop: 8,
@@ -885,9 +892,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    backgroundColor: Colors.lightGray,
+    borderRadius: 10,
   },
   foodItemInfo: {
     flex: 1,
@@ -900,27 +909,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.text,
     flex: 1,
+    fontWeight: '500',
   },
   foodItemCalories: {
     fontSize: 14,
-    color: Colors.gray,
+    color: Colors.primary,
     marginLeft: 8,
+    fontWeight: '600',
   },
   deleteButton: {
-    padding: 4,
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   noFoodsText: {
     color: Colors.gray,
     fontStyle: 'italic',
     textAlign: 'center',
-    padding: 8,
+    padding: 12,
+    fontSize: 13,
   },
   macroBars: {
     flexDirection: 'row',
-    height: 8,
-    borderRadius: 4,
+    height: 6,
+    borderRadius: 3,
     overflow: 'hidden',
     marginTop: 12,
+    backgroundColor: Colors.lightGray,
   },
   macroBar: {
     height: '100%',
@@ -1019,6 +1034,7 @@ const styles = StyleSheet.create({
   dateCard: {
     margin: 20,
     marginTop: 10,
+    borderRadius: 14,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -1027,24 +1043,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dateLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
   },
   dateControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   dateButton: {
     padding: 8,
+    backgroundColor: Colors.lightGray,
+    borderRadius: 8,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     minWidth: 200,
+    textAlign: 'center',
   },
   todayButton: {
     backgroundColor: Colors.primary,

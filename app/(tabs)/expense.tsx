@@ -139,8 +139,28 @@ export default function ExpenseScreen() {
         setMonthlyBudget(data.monthly_budget || 0);
         const expensesArray = Array.isArray(data.expenses) ? data.expenses : [];
         
+        // Check if any expenses don't have IDs and assign them
+        const expensesWithIds = expensesArray.map((expense: any, index: number) => {
+          if (!expense.id) {
+            const newId = `${user.id}_${index}_fallback_${Date.now()}`;
+            console.log('Assigning fallback ID:', newId, 'to expense:', expense);
+            return { ...expense, id: newId };
+          }
+          return expense;
+        });
+        
+        // If we assigned any new IDs, save them back to the database
+        const hasNewIds = expensesWithIds.some((expense, index) => 
+          expense.id !== expensesArray[index]?.id
+        );
+        
+        if (hasNewIds) {
+          console.log('Saving expenses with new IDs to database');
+          await updateDoc(expenseDocRef, { expenses: expensesWithIds });
+        }
+        
         // Store all expenses
-        const allExpensesData: ExpenseData[] = expensesArray.map((expense: any, index: number) => ({
+        const allExpensesData: ExpenseData[] = expensesWithIds.map((expense: any, index: number) => ({
           id: expense.id || `${user.id}_${index}`,
           ...expense,
         }));
@@ -148,7 +168,7 @@ export default function ExpenseScreen() {
         
         // Filter expenses for selected date
         const selectedDateStr = selectedDate.toISOString().split('T')[0];
-        const filteredExpenses = expensesArray.filter((expense: any) => {
+        const filteredExpenses = expensesWithIds.filter((expense: any) => {
           if (!expense.date) return false;
           return expense.date === selectedDateStr;
         });
@@ -205,6 +225,7 @@ export default function ExpenseScreen() {
 
     try {
       const expenseData = {
+        id: `${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         description: description.trim(),
         amount: parsedAmount,
         category: selectedCategory,
@@ -297,6 +318,9 @@ export default function ExpenseScreen() {
             : ''}
         </Text>
       </View>
+      <TouchableOpacity onPress={() => deleteExpense(item.id)} style={styles.deleteButton}>
+        <MaterialIcons name="delete" size={18} color={Colors.error} />
+      </TouchableOpacity>
     </View>
   );
 
@@ -364,6 +388,41 @@ export default function ExpenseScreen() {
     } catch (error: any) {
       console.error('Error saving monthly budget:', error);
       Alert.alert('Error', 'Failed to save budget. Please try again.');
+    }
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (!user?.id) {
+      Alert.alert('Error', 'Please log in to delete expenses.');
+      return;
+    }
+
+    try {
+      if (!user?.id) return;
+      const expenseDocRef = doc(db, "expense", user.id);
+      const expenseDocSnap = await getDoc(expenseDocRef);
+
+      if (expenseDocSnap.exists()) {
+        const prevData = expenseDocSnap.data();
+        const expensesArray = Array.isArray(prevData.expenses) ? prevData.expenses : [];
+        
+        console.log('Deleting expense with ID:', id);
+        console.log('Current expenses:', expensesArray);
+        
+        // Filter out the expense with the matching id
+        const updatedExpenses = expensesArray.filter((expense: any) => {
+          console.log('Checking expense:', expense, 'ID:', expense.id, 'matches:', expense.id !== id);
+          return expense.id !== id;
+        });
+        
+        console.log('Updated expenses after deletion:', updatedExpenses);
+        
+        await updateDoc(expenseDocRef, { expenses: updatedExpenses });
+        await loadExpenses(); // Reload all expenses
+      }
+    } catch (error: any) {
+      console.error('Error deleting expense:', error);
+      Alert.alert('Error', 'Failed to delete expense.');
     }
   };
 
@@ -742,19 +801,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: ThemeTokens.spacing.lg,
-    paddingTop: ThemeTokens.spacing.xl * 2,
+    paddingTop: ThemeTokens.spacing.xl * 2 + 8,
+    paddingBottom: ThemeTokens.spacing.xl + 4,
     backgroundColor: Colors.primary,
-    borderBottomLeftRadius: ThemeTokens.radius.xl,
-    borderBottomRightRadius: ThemeTokens.radius.xl,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   title: {
     fontSize: ThemeTokens.typography.headline,
     fontWeight: '800',
     color: 'white',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: ThemeTokens.spacing.xs,
   },
   profileImageContainerGlobal: { // Renamed from profileImageContainer to avoid conflict
@@ -771,6 +832,12 @@ const styles = StyleSheet.create({
     margin: ThemeTokens.spacing.lg,
     marginTop: ThemeTokens.spacing.sm,
     padding: ThemeTokens.spacing.lg,
+    borderRadius: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
   budgetHeader: {
     flexDirection: 'row',
@@ -779,22 +846,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   budgetLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.gray,
     marginBottom: 4,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   budgetAmount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.text,
+    fontSize: 28,
+    fontWeight: '800',
+    color: Colors.primary,
   },
   editButton: {
     padding: 0,
     minWidth: 0,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: Colors.primary + '10',
+    borderRadius: 8,
   },
   progressContainer: {
-    marginTop: 16,
+    marginTop: 14,
   },
   progressLabels: {
     flexDirection: 'row',
@@ -804,35 +877,34 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 12,
     color: Colors.gray,
+    fontWeight: '500',
   },
   progressBar: {
-    height: 8,
+    height: 10,
     backgroundColor: Colors.lightGray,
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
   expenseHeaderContainer: {
     marginHorizontal: ThemeTokens.spacing.lg,
-    marginBottom: ThemeTokens.spacing.lg,
+    marginBottom: ThemeTokens.spacing.md,
     marginTop: ThemeTokens.spacing.md,
-    backgroundColor: 'white',
-    borderRadius: ThemeTokens.radius.md,
+    backgroundColor: Colors.primary + '08',
+    borderRadius: 12,
     paddingVertical: ThemeTokens.spacing.md,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.primary + '15',
   },
   expenseHeaderText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.text,
+    letterSpacing: 0.3,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -883,24 +955,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    borderRadius: 22,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
     marginRight: 10,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.lightGray,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
   },
   selectedCategoryPill: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
+    elevation: 3,
   },
   categoryIcon: {
     marginRight: 6,
   },
   categoryPillText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   selectedCategoryPillText: {
     color: 'white',
@@ -914,40 +992,50 @@ const styles = StyleSheet.create({
   expenseItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
+    paddingHorizontal: 16,
   },
   expenseIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   expenseInfo: {
     flex: 1,
   },
   expenseTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
     color: Colors.text,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   expenseCategory: {
     fontSize: 12,
     color: Colors.gray,
+    fontWeight: '500',
   },
   expenseAmountContainer: {
     alignItems: 'flex-end',
+    marginRight: 8,
+  },
+  deleteButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
   },
   expenseAmount: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 2,
   },
   expenseDate: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.gray,
   },
   separator: {
@@ -956,22 +1044,23 @@ const styles = StyleSheet.create({
     marginLeft: 68,
   },
   emptyState: {
-    padding: 32,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyStateText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: Colors.text,
     marginTop: 16,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   emptyStateSubtext: {
     fontSize: 14,
     color: Colors.gray,
     textAlign: 'center',
     marginBottom: 24,
+    lineHeight: 20,
   },
   addExpenseButton: {
     width: '100%',
@@ -1080,6 +1169,7 @@ const styles = StyleSheet.create({
   dateCard: {
     margin: ThemeTokens.spacing.lg,
     marginTop: ThemeTokens.spacing.sm,
+    borderRadius: 14,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -1088,24 +1178,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   dateLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: ThemeTokens.spacing.sm,
   },
   dateControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: ThemeTokens.spacing.sm,
+    gap: 6,
   },
   dateButton: {
     padding: ThemeTokens.spacing.xs,
+    backgroundColor: Colors.lightGray,
+    borderRadius: 8,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     minWidth: 200,
+    textAlign: 'center',
   },
   todayButton: {
     backgroundColor: Colors.primary,
