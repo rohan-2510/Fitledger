@@ -52,6 +52,7 @@
   "devDependencies": {
     "@types/estree": "^1.0.8",
     "@types/react": "~19.1.0",
+    "baseline-browser-mapping": "^2.10.10",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "expo-module-scripts": "^5.0.7",
