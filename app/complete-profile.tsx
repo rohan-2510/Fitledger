@@ -52,15 +52,15 @@ export default function CompleteProfileScreen() {
       // Map gender to backend format
       let mappedGender = gender.substring(0, 1).toUpperCase(); // M, F, O
 
-      const result = await saveProfile({ 
-        height, 
-        weight, 
-        age, 
-        activityLevel: mappedActivity, 
+      const result = await saveProfile({
+        height,
+        weight,
+        age,
+        activityLevel: mappedActivity,
         goal: mappedGoal,
         gender: mappedGender // Add gender here
       });
-      
+
       if (result.success) {
         router.replace({ pathname: '/(tabs)', params: { profileSaved: 'true' } });
       } else {
@@ -79,6 +79,7 @@ export default function CompleteProfileScreen() {
       <TextInput
         style={styles.input}
         placeholder="Height (cm)"
+        placeholderTextColor={"gray"}
         keyboardType="numeric"
         value={height}
         onChangeText={setHeight}
@@ -86,6 +87,7 @@ export default function CompleteProfileScreen() {
       <TextInput
         style={styles.input}
         placeholder="Weight (kg)"
+        placeholderTextColor={"gray"}
         keyboardType="numeric"
         value={weight}
         onChangeText={setWeight}
@@ -93,11 +95,12 @@ export default function CompleteProfileScreen() {
       <TextInput
         style={styles.input}
         placeholder="Age"
+        placeholderTextColor={"gray"}
         keyboardType="numeric"
         value={age}
         onChangeText={setAge}
       />
-      
+
       {/* Gender Selection */}
       <TouchableOpacity style={styles.select} onPress={() => setGenderOpen(true)}>
         <Text style={[styles.selectText, !gender && styles.placeholderText]}>
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
     color: "black",
   },
   placeholderText: {
-    color: "black",
+    color: "grey",
   },
   saveButton: {
     marginTop: ThemeTokens.spacing.md,

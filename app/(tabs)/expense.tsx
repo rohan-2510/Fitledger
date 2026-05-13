@@ -266,7 +266,9 @@ export default function ExpenseScreen() {
   };
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-  const budgetUsed = monthlyBudget > 0 ? (totalExpenses / monthlyBudget) * 100 : 0;
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const dailyBudget = monthlyBudget > 0 ? monthlyBudget / daysInMonth : 0;
+  const budgetUsed = dailyBudget > 0 ? (totalExpenses / dailyBudget) * 100 : 0;
 
   // Add monthly expense calculations
   const currentMonth = new Date().getMonth();
@@ -466,23 +468,7 @@ export default function ExpenseScreen() {
           </View>
           
           <View style={styles.progressContainer}>
-            <View style={styles.progressLabels}>
-              <Text style={styles.progressText}>Spent today: ₹{totalExpenses.toLocaleString()}</Text>
-              <Text style={styles.progressText}>
-                {budgetUsed.toFixed(1)}% of budget
-              </Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${Math.min(budgetUsed, 100)}%`,
-                    backgroundColor: budgetUsed > 80 ? Colors.error : Colors.success
-                  }
-                ]} 
-              />
-            </View>
+            <Text style={styles.progressText}>Spent today: ₹{totalExpenses.toLocaleString()}</Text>
           </View>
           
           {/* Add Monthly Progress Bar */}

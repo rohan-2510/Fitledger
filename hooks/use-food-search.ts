@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import foodsData from '../assets/foods.json';
 
 export interface FoodResult {
   id: string;
@@ -7,11 +8,13 @@ export interface FoodResult {
   protein: number;
   carbs: number;
   fat: number;
+  fibre: number;
+  cholesterol: number;
+  calcium: number;
+  freesugar: number;
   serving_size?: string;
   source?: 'USDA' | 'Gemini';
 }
-
-const DATASET_NAME = "adarshzolekar/foods-nutrition-dataset";
 
 export const useFoodSearch = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,25 +27,24 @@ export const useFoodSearch = () => {
     setError(null);
 
     try {
-      // The Hugging Face Dataset Server search endpoint
-      const API_URL = `https://datasets-server.huggingface.co/search?dataset=${DATASET_NAME}&config=default&split=train&query=${encodeURIComponent(query)}`;
-      
-      const response = await fetch(API_URL);
-      const data = await response.json();
+      const lowerQuery = query.toLowerCase().trim();
 
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      // Search locally from the embedded JSON data
+      const results = foodsData.filter((item: any) =>
+        item.name.toLowerCase().includes(lowerQuery)
+      );
 
-      // Map Hugging Face rows to your FoodItem format
-      // Column names: Food Items, Energy kcal, Carbs, Protein(g), Fat(g)
-      return data.rows.map((item: any, index: number) => ({
-        id: `usda_${Date.now()}_${index}`,
-        name: item.row['Food Items'] || item.row.food_item || '',
-        calories: Number(item.row['Energy kcal'] || 0),
-        protein: Number(item.row['Protein(g)'] || 0),
-        carbs: Number(item.row['Carbs'] || 0),
-        fat: Number(item.row['Fat(g)'] || 0),
+      return results.map((item: any) => ({
+        id: `local_${item.id}`,
+        name: item.name,
+        calories: item.energy_kcal,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        fibre: item.fibre,
+        cholesterol: item.cholesterol,
+        calcium: item.calcium,
+        freesugar: item.freesugar,
         source: 'USDA' as const,
       }));
     } catch (err: any) {
